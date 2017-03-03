@@ -175,6 +175,7 @@ void init_adc_timer()
 
 void init_pwm()				
 {
+	/*Sets up the PWM timer 2 registers (8-bit timer), for the voltage output pin*/
 	//Plan: Use Fast PWM, non-inverting mode. Higher compare register -> higher duty cycle
 	//Configure OCR2A to change the duty cycle. 0->255.
 
@@ -228,6 +229,7 @@ void set_digital(uint8_t pin, uint8_t val)
 double get_time()
 {
 	/*Getting timer time in terms of second */
+	return (counter/5);
 }
 
 uint16_t read_adc(uint8_t channelNum)
