@@ -2,6 +2,7 @@
  * 	Testing the averaging code after changing from = to += of line 299
  * 	Testing the total energy function. Does it work properly.
  * 	Add control for the first profile.
+ *  Find out how GITHUB works
  */
 
 
