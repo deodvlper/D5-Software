@@ -1,3 +1,10 @@
+/* TO DO:
+ * 	Testing the averaging code after changing from = to += of line 299
+ * 	Testing the total energy function. Does it work properly.
+ * 	Add control for the first profile.
+ */
+
+
 #include <avr/io.h>
 #include <avr/iom644p.h> //Remove the error unresolved constant.
 #include <avr/interrupt.h>
@@ -51,7 +58,8 @@ uint8_t get_digital(uint8_t pin);
 void set_digital(uint8_t pin, uint8_t val);
 double get_time();
 uint16_t read_adc(uint8_t channelNum);
-void update_avg(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* instan_power, double* avg_power);
+void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power);
+void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy);
 void printNumber(double* value, char* dataToStrBuff, char*sprintfBuff, uint8_t row, uint8_t col);
 
 //GLOBAL VARIABLES
@@ -75,7 +83,6 @@ ISR(TIMER0_COMPA_vect)
 	new_data=1;
 }
 
-
 int main()
 {
 	//LCD INITIALIZATION
@@ -88,11 +95,12 @@ int main()
 	char sprintfBuff[20]; // data<string> -> sprintf buffer. Might remove if use dtostrf for all.
 
 	uint64_t sample=0; //sample number
-	double instan_power=0; //Have it here, so no need power calculation at total energy usage
-	double avg_power=0;
 	uint16_t bb_v_sample;
 	uint16_t bb_c_sample;
+	double total_energy;
+	double avg_power=0;	
 	uint8_t updated=0;
+	double total_current;
 
 	//INITIALIZATION
 	init_adc();
@@ -102,22 +110,14 @@ int main()
 	init_digital();
 	sei(); //enable interrupt
 
-
-//	CURRENT TASK:
-//		-SETUP TIMER -- DONE
-//		-SETUP ISR -- DONE
-//		-CHECK ENABLING AT THE START -- DONE
-//		-CHECK IF TIMER WORKS. -- by printing --DONE
-//		-ADD ADC CODE TO IT, SO THAT IT FEEDS FROM THEM --done
-//		-ADD AVERAGING CODE IN THE MAIN	--done
-//		-ADD CHECKING MECHANISM IF THE DATA HAS BEEN READ BY THE MAIN LOOP --done
-
 	//TESTING VARIABLE
 	update_table(0,0,"voltage:");
 	update_table(1,0, "current:");
 	update_table(2,0,"avg pwr:");
+	update_table(3,0, "energy:");
 	double current=0;
 	double voltage=0;
+	double sample_d;
 
 	while(1)
 	{
@@ -130,24 +130,39 @@ int main()
 			new_data=0;
 			sei();//enable global interrupt
 
-			//AVERAGING + INTEGRATNG
-			sample++;
-			update_avg(&bb_v_sample, &bb_c_sample, &sample, &instan_power, &avg_power);
-			//add integrating code.
+			//INTEGRATING AND AVERAGING
+			update_energy(&bb_v_sample, &bb_c_sample, &sample, &total_energy);
+			update_avg(&total_energy, &sample, &avg_power);
 		}
 
+		//DECISION SATEMENT FOR THE FIRST ONE
+		total_current=0;
+		if(get_digital(CLOAD1))
+		{
+			set_digital(SLOAD1,1);
+			total_current+=0.8;
+		}
+		else
+		{
+			set_digital(SLOAD1,0);
+		}
+
+		//DIRECT SCREEN UPDATE - CHANGE LATER
 		current=(double)((bb_c_sample/1023.0)*6.6-3.3);
 		voltage=(double)((bb_v_sample/1023.0)*6.6-3.3);
+		sample_d = (double) sample;
 
 		printNumber(&voltage, dataToStrBuff, sprintfBuff, 0,1);
 		printNumber(&current, dataToStrBuff, sprintfBuff, 1,1);
 		printNumber(&avg_power, dataToStrBuff, sprintfBuff, 2,1);
+		printNumber(&total_energy, dataToStrBuff, sprintfBuff,3,1);
+		printNumber(&sample_d, dataToStrBuff, sprintfBuff,4,1);
 
 //		if( (counter%2==0) & !updated)
 //		{
 //			//UPDATING PER 1/2 SECOND
-//			printNumber(&avg_power, dataToStrBuff, sprintfBuff, 0,1);
-//			printNumber(&current, dataToStrBuff, sprintfBuff, 1,1);
+//
+//
 //			updated=1;
 //		}
 //		else if(counter%2!=0)
@@ -288,13 +303,19 @@ uint16_t read_adc(uint8_t channelNum)
 	return ADC; //return the ADC data after ready.
 }
 
-void update_avg(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* instan_power, double* avg_power)
+void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power)
 {
-	//THIS FUNCTION SEEMS NOT TOO GOOD.
+	/* UPDATE AVG REV 2*/ 
+	//NOW GET AVERAGE FROM TOTAL VALUE.
+	*avg_power = *total_energy / (*sample * 0.0016); //divide by the total time
+}
+
+void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy)
+{
+	/* Updating the total energy*/
 	*sample+=1;
-	//*instan_power = ((*voltage_read/1023.0)*8.0-4)*100 * ((*current_read/1023)*20.0-10);
-	*instan_power = ((*voltage_read/1023.0)*6.6-3.3) * ((*current_read/1023.0)*6.6-3.3); //Note wrong offset before this.
-	*avg_power = *avg_power + (*instan_power-*avg_power) / *sample;
+	*total_energy += ((*voltage_read/1023.0)*6.6-3.3) * ((*current_read/1023.0)*6.6-3.3) * 0.0016; //0.0016 is sampling period of 625Hz.
+	//*total_energy += ((*voltage_read/1023.0)*6.6-3.3)*((*voltage_read/1023.0)*6.6-3.3);
 }
 
 void printNumber(double* value, char* dataToStrBuff, char* sprintfBuff, uint8_t row, uint8_t col)
