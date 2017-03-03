@@ -6,34 +6,12 @@
 
 #include "helloWorld.h"
 
-//FUNCTION LIST
-void init_usr_intfc();
-void init_adc();
-void init_adc_timer();
-void init_global_timer();
-void init_pwm();
-void init_digital();
-void set_pwm_vout(double vin);
-uint8_t get_digital(uint8_t pin);
-void set_digital(uint8_t pin, uint8_t val);
-double get_time();
-uint16_t read_adc(uint8_t channelNum);
-void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power);
-void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy);
-void printNumber(double* value, char* dataToStrBuff, char*sprintfBuff, uint8_t row, uint8_t col);
-
 //GLOBAL VARIABLES
-volatile uint16_t counter=0; //used double for testing. Change to uint16_t when no need display. --> 20/2/17 changed to uint16_t
-volatile uint16_t bb_volt_data=0;
-volatile uint16_t bb_curr_data=0;
-volatile uint16_t new_data=0; //checking if it's a new data
-
-//INTERRUPT SERVICE ROUTINE (ISR)
-ISR(TIMER1_COMPA_vect)
-{
-	/*Adding the counter variable*/
-	counter++;
-}
+volatile uint8_t counter = 0; 		//used double for testing. Change to uint16_t when no need display. --> 20/2/17 changed to uint16_t
+volatile uint8_t temp = 0;			//used in the interrupt as a temporary variable for the 'counter' variable
+volatile uint16_t bb_volt_data = 0;
+volatile uint16_t bb_curr_data = 0;
+volatile uint16_t new_data = 0; 	//checking if it's a new data
 
 ISR(TIMER0_COMPA_vect)
 {
@@ -41,44 +19,55 @@ ISR(TIMER0_COMPA_vect)
 	bb_volt_data=read_adc(BBVOLTAGE);
 	bb_curr_data=read_adc(BBCURRENT);
 	new_data=1;
+	
+	temp += 1;
+	if (temp == 125)		//when temp reaches 20% of the count (0.2s)
+		{
+			counter +=1;	//global clock increments every 0.2s
+			temp = 0;
+		}
 }
 
 int main()
 {
 	//LCD INITIALIZATION
-	init_lcd();
-	set_orientation(North);
-	init_usr_intfc();
+	init_lcd();				//Premade function, configures the ports
+	set_orientation(North);	//Premade funtion, Sets in portrait mode
+	init_usr_intfc();		//Created function, draws the main theme, sets up table
 
 	//VARIABLES
-	char dataToStrBuff[20]; //data -> string buffer
-	char sprintfBuff[20]; // data<string> -> sprintf buffer. Might remove if use dtostrf for all.
+	char dataToStrBuff[20]; //data (double) -> string buffer (array of chars), used in dtostrf
+	char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
+							//this is what is displayed on the LCD
 
-	uint64_t sample=0; //sample number
-	uint16_t bb_v_sample;
-	uint16_t bb_c_sample;
-	double total_energy;
-	double avg_power=0;	
-	uint8_t updated=0;
+	uint64_t sample = 0; 		//sample count
+	uint16_t bb_v_sample = 0;	//updates on each sample
+	uint16_t bb_c_sample = 0;	//updates on each sample
+	double total_energy = 0;	
+	double avg_power = 0;	
+	uint8_t updated = 0;		//acts as a boolean variable, used for updating LCD
 
-	uint8_t load1_r=0; //r = request, s = set.
-	uint8_t load2_r=0;
-	uint8_t load3_r=0;
-	uint8_t battery_c=0; //c = charge, d = discharge;
+	uint8_t load1_r = 0; 		//'_r' = request, '_s' = set.
+	uint8_t load2_r = 0;		//all of these act as boolean variables
+	uint8_t load3_r = 0;
+	uint8_t battery_c =0 ; 		//'_c' = charge, '_d' = discharge
 
 	//INITIALIZATION
-	init_adc();
-	init_adc_timer();
-	init_global_timer();
-	init_pwm();
-	init_digital();
-	sei(); //enable interrupt
+	init_adc();					//Created function, enables ADC pins 
+	init_adc_timer();			//Created function, sets up 
+	init_pwm();					//sets up the registers, for the voltage output pin
+	init_digital();				//sets up the digital inputs on port A, outputs on port D
+	sei(); 						//enable interrupt
 
 	//TESTING VARIABLE
 	update_table(0,0,"voltage:");
 	update_table(1,0, "current:");
 	update_table(2,0,"avg pwr:");
 	update_table(3,0, "energy:");
+	update_table(0,2, "V");
+	update_table(1,2, "A");
+	update_table(2,2, "W");
+	update_table(3,2, "?");
 	double current=0;
 	double voltage=0;
 	double test;
@@ -100,9 +89,9 @@ int main()
 		}
 
 		//DECISION SATEMENT FOR THE FIRST ONE
-		load1_r=(get_digital(CLOAD1)) ? 1 : 0;
-		load2_r=(get_digital(CLOAD2)) ? 1 : 0;
-		load3_r=(get_digital(CLOAD3)) ? 1 : 0;
+		load1_r = (get_digital(CLOAD1)) ? 1 : 0;
+		load2_r = (get_digital(CLOAD2)) ? 1 : 0;
+		load3_r = (get_digital(CLOAD3)) ? 1 : 0;
 
 		battery_c = ((load1_r*I1+load2_r*I2+load3_r*I3) <= 3) ? 1:0;
 
@@ -112,10 +101,10 @@ int main()
 		set_digital(CBATT, battery_c);
 
 		//DIRECT SCREEN UPDATE - CHANGE LATER
-		current=(double)((bb_c_sample/1023.0)*6.6-3.3);
-		voltage=(double)((bb_v_sample/1023.0)*6.6-3.3);
+		current = (double)((bb_c_sample/1023.0)*6.6-3.3);
+		voltage = (double)((bb_v_sample/1023.0)*6.6-3.3);
 
-		test=(double)load1_r;
+		test = (double)counter;
 		printNumber(&test, dataToStrBuff, sprintfBuff, 4,1);
 
 		printNumber(&voltage, dataToStrBuff, sprintfBuff, 0,1);
@@ -141,9 +130,9 @@ int main()
 	return 0;
 }
 
-
-void init_usr_intfc()
+void init_usr_intfc()	
 {
+	/*draws the main theme, sets up table*/
 	//TEAM H title bar
 	rectangle top_bar = {.left=0, .right=display.width, .top=0, .bottom=17};
 	fill_rectangle(top_bar, WHITE);
@@ -166,45 +155,26 @@ void init_usr_intfc()
 
 	//Setting up tabling grid starting point
 	init_table(inner_rect.left, inner_rect.top);
-
-
 }
 
-void init_adc()
+void init_adc()			 
 {
 	/* Initializing ADC Pins */
-	DDRA &= ~( _BV(BBVOLTAGE) | _BV(BBCURRENT) | _BV(WCURRENT) | _BV(SCURRENT) ); //setting pins as input at A
-	ADCSRA |= _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1); //ADC enable. Pre-scaler f_cpu/64, not free running.
+	DDRA &= ~( _BV(BBVOLTAGE) | _BV(BBCURRENT) | _BV(WCURRENT) | _BV(SCURRENT) ); //Setting 4 pins on port A as inputs
+	ADCSRA |= _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1); 								  //ADC enable. Pre-scaler f_cpu/64, not free running.
 }
 
 void init_adc_timer()
 {
 	/* Timer for ADC sampling at 625 Hz*/
-	TCCR0A |= _BV(WGM01); //CTC MODE
-	TCCR0B |= _BV(CS02); //256 PRESCALER
-	OCR0A = 74; //COMPARE VALUE
-	TIMSK0 |= _BV(OCIE0A); //ENABLING INTERRUPT COMAPRE A
+	TCCR0A |= _BV(WGM01); 			//CTC MODE
+	TCCR0B |= _BV(CS02); 			//256 PRESCALER
+	OCR0A = 74; 					//COMPARE VALUE
+	TIMSK0 |= _BV(OCIE0A); 			//ENABLING INTERRUPT COMAPRE A
 }
 
-void init_global_timer()
+void init_pwm()				
 {
-	/*Use timer 1 (16-bit timer) as the global timer -- including interrupt*/
-
-	//Configuring Timer
-	//No OC1A/B connections on port. Normal operation COM1A/B1:0=0
-	//CTC Mode WGM13:0=4
-	TCCR1A = 0; //setting to zeroes.
-	TCCR1B |= _BV(WGM12); //setting CTC mode
-	TCCR1B |= _BV(CS11) | _BV(CS10); //64 prescaler
-	OCR1A = OCR1A_VAL;
-
-	//Enable interrupts
-	TIMSK1 |= _BV(OCIE1A); //local interrupt -- just ignore the error. Can built fine. Maybe Eclipse glitch. else can #include <avr/iom644p.h>
-}
-
-void init_pwm()
-{
-	/*Initializing PWM using timer 2 (8-bit timer)*/
 	//Plan: Use Fast PWM, non-inverting mode. Higher compare register -> higher duty cycle
 	//Configure OCR2A to change the duty cycle. 0->255.
 
@@ -213,25 +183,27 @@ void init_pwm()
 
 	//Configuring Timer
 	TCCR2A |= _BV(COM2A1) | _BV(WGM21) | _BV(WGM20); //Non-inverting mode output compare A, Fast PWM Mode with top=0xFF (mode 3). -- Ignore error. Still built, I think eclipse glitch.
-	TCCR2B |= _BV(CS20); //No pre-scaling. Output frequency = 12MHz/256 = 46.875KHz
+	TCCR2B |= _BV(CS20); 							 //No pre-scaling. Output frequency = 12MHz/256 = 46.875KHz
 
 	//Initially 0V output
 	OCR2A = 0;
 }
 
-void init_digital()
+void init_digital()			
 {
-	/* Initializing digital input/output */
-	DDRIN &= ~(_BV(CLOAD1) | _BV(CLOAD2) | _BV(CLOAD3)); //input setting
-	PORTIN &= ~(_BV(CLOAD1) | _BV(CLOAD2) | _BV(CLOAD3)); //HI-Z input. No pull up because no switch
-	DDROUT |= _BV(CBATT) | _BV(DBATT) | _BV(SLOAD1) | _BV(SLOAD2) | _BV(SLOAD3); //output setting
-	PINOUT = 0; //initially all output==0;
+	/*sets up the digital inputs on port A, outputs on port D*/
+	DDRIN &= ~(_BV(CLOAD1) | _BV(CLOAD2) | _BV(CLOAD3)); 						 //setting inputs
+	PORTIN &= ~(_BV(CLOAD1) | _BV(CLOAD2) | _BV(CLOAD3)); 						 //HI-Z input. No pull up because no switch
+	DDROUT |= _BV(CBATT) | _BV(DBATT) | _BV(SLOAD1) | _BV(SLOAD2) | _BV(SLOAD3); //setting outputs
+	PINOUT = 0; 																 //initially all output==0;
 }
 
 void set_pwm_vout(double vin)
 {
 	/*Convert 0->10v (amplified out) to 0->255 */
-	OCR2A = (int)((vin/10.0)*255); //added 0.5 -> when x.y -> 0<=y<=4 round down, 0<5 = round up.
+	OCR2A = (int)(((vin/10.0)*255)+0.5); //added 0.5, for x.y when 0<=y<=4 round down, 0<5 = round up.
+										 //converting to int truncates the decimal, +0.5 acts as rounding
+										 //sets the compare value as the voltage required 
 }
 
 uint8_t get_digital(uint8_t pin)
@@ -256,7 +228,6 @@ void set_digital(uint8_t pin, uint8_t val)
 double get_time()
 {
 	/*Getting timer time in terms of second */
-	return counter*PERIOD_OV;
 }
 
 uint16_t read_adc(uint8_t channelNum)
@@ -286,7 +257,7 @@ void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, u
 void printNumber(double* value, char* dataToStrBuff, char* sprintfBuff, uint8_t row, uint8_t col)
 {
 	/*Updating double/integer to certain precision to screen in table mode */
-	dtostrf(*value,WD,PREC, dataToStrBuff);
-	sprintf(sprintfBuff, "%6s", dataToStrBuff);
+	dtostrf(*value,WD,PREC, dataToStrBuff);			//turns doubles into an array of chars
+	sprintf(sprintfBuff, "%7s", dataToStrBuff);		//formats array of chars into suitable format for display
 	update_table(row, col, sprintfBuff);
 }

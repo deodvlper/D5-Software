@@ -15,11 +15,7 @@
 
 //DEFINITION: DATA-PRITING -- dtostrf -- change PREC to change precision.
 #define WD 3
-#define PREC 2
-
-//DEFINITION: GLOBAL TIMER
-#define OCR1A_VAL 46874 		//2 overflow/second. 4 -> 46874. 5 -> 37499
-#define PERIOD_OV 1/OCR1A_VAL	//
+#define PREC 3
 
 //DEFINITION: DIGITAL INPUT
 #define DDRIN DDRA
@@ -32,7 +28,7 @@
 //DEFINITION: DIGITAL OUTPUT
 #define DDROUT DDRD
 #define PORTOUT PORTD			//Used for setting output pins on port D
-//#define PINOUT PINA	/*PIND?*/	//Eg PINOUT = 0x28, 28(hex) in binary is 00101000, which is what is put on the port
+#define PINOUT PIND	         	//Eg PINOUT = 0x28, 28(hex) in binary is 00101000, which is what is put on the port
 #define CBATT PD0 				//Charge battery pin
 #define DBATT PD1 				//Discharge battery pin
 #define SLOAD1 PD2 				//Switch load 1
@@ -48,7 +44,6 @@
 void init_usr_intfc();			//Created function, draws the main theme, sets up table
 void init_adc();				//Created function, enables ADC pins 
 void init_adc_timer();
-void init_global_timer();		//Sets up timer 1 for the global time count, and the relevant interrupt
 void init_pwm();				//Sets up the registers, for the voltage output pin 
 void init_digital();			//Sets up the digital inputs on port A, outputs on port D
 void set_pwm_vout(double vin);
@@ -56,5 +51,6 @@ uint8_t get_digital(uint8_t pin);
 void set_digital(uint8_t pin, uint8_t val);
 double get_time();
 uint16_t read_adc(uint8_t channelNum);
-void update_avg(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* instan_power, double* avg_power);
+void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power);
+void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy);
 void printNumber(double* value, char* dataToStrBuff, char*sprintfBuff, uint8_t row, uint8_t col);
