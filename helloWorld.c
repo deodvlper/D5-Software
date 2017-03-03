@@ -2,7 +2,6 @@
  * 	Testing the averaging code after changing from = to += of line 299
  * 	Testing the total energy function. Does it work properly.
  * 	Add control for the first profile.
- *  Find out how GITHUB works
  */
 
 
@@ -46,6 +45,11 @@
 #define SLOAD1 PD2 //switch load
 #define SLOAD2 PD3
 #define SLOAD3 PD4
+
+//DEFINITION: LOAD CURRENT LIST
+#define I1 0.8
+#define I2 1.8
+#define I3 1.4
 
 //FUNCTION LIST
 void init_usr_intfc();
@@ -101,7 +105,11 @@ int main()
 	double total_energy;
 	double avg_power=0;	
 	uint8_t updated=0;
-	double total_current;
+
+	uint8_t load1_r=0; //r = request, s = set.
+	uint8_t load2_r=0;
+	uint8_t load3_r=0;
+	uint8_t battery_c=0; //c = charge, d = discharge;
 
 	//INITIALIZATION
 	init_adc();
@@ -118,7 +126,7 @@ int main()
 	update_table(3,0, "energy:");
 	double current=0;
 	double voltage=0;
-	double sample_d;
+	double test;
 
 	while(1)
 	{
@@ -137,27 +145,28 @@ int main()
 		}
 
 		//DECISION SATEMENT FOR THE FIRST ONE
-		total_current=0;
-		if(get_digital(CLOAD1))
-		{
-			set_digital(SLOAD1,1);
-			total_current+=0.8;
-		}
-		else
-		{
-			set_digital(SLOAD1,0);
-		}
+		load1_r=(get_digital(CLOAD1)) ? 1 : 0;
+		load2_r=(get_digital(CLOAD2)) ? 1 : 0;
+		load3_r=(get_digital(CLOAD3)) ? 1 : 0;
+
+		battery_c = ((load1_r*I1+load2_r*I2+load3_r*I3) <= 3) ? 1:0;
+
+		set_digital(SLOAD1,load1_r);
+		set_digital(SLOAD2,load2_r);
+		set_digital(SLOAD3,load3_r);
+		set_digital(CBATT, battery_c);
 
 		//DIRECT SCREEN UPDATE - CHANGE LATER
 		current=(double)((bb_c_sample/1023.0)*6.6-3.3);
 		voltage=(double)((bb_v_sample/1023.0)*6.6-3.3);
-		sample_d = (double) sample;
+
+		test=(double)load1_r;
+		printNumber(&test, dataToStrBuff, sprintfBuff, 4,1);
 
 		printNumber(&voltage, dataToStrBuff, sprintfBuff, 0,1);
 		printNumber(&current, dataToStrBuff, sprintfBuff, 1,1);
 		printNumber(&avg_power, dataToStrBuff, sprintfBuff, 2,1);
 		printNumber(&total_energy, dataToStrBuff, sprintfBuff,3,1);
-		printNumber(&sample_d, dataToStrBuff, sprintfBuff,4,1);
 
 //		if( (counter%2==0) & !updated)
 //		{
