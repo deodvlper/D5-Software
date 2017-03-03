@@ -173,15 +173,28 @@ void init_table(uint16_t x_str, uint16_t y_start )
 {
 	start_x = x_str+8; //offset from right one 1 pixel.
 	start_y = y_start+10; //do down from the "status" text.
-	mid_point = display.width/2;
+	value_column = (display.width/2) - 16;
+	unit_column = (display.width*0.75) + 16;
 }
 
 void update_table(uint16_t row, uint16_t col, char *str)
 {
 	//start with 0,0 and for the row only 2 rows currently.
 	//can add a protection in front of this.
-	//change_position( (row) ? start_x : mid_point ,start_y+row*16); //for x, either it's midpoint or it is the left starting point.
-	change_position((col) ? mid_point : start_x,start_y + (row*16));
+	//change_position( (row) ? start_x : value_column ,start_y+row*16); //for x, either it's midpoint or it is the left starting point.
+	//change_position((col) ? value_column : start_x,start_y + (row*16));
+	switch (col) 
+		{
+			case 0 :	
+						change_position(start_x ,      start_y + (row * 16) );
+						break;
+			case 1 :	
+						change_position(value_column , start_y + (row * 16) );
+						break;
+			case 2 :	
+						change_position(unit_column ,  start_y + (row * 16) );
+						break;
+		}
 	//the height always add 16 to the next one.
 	display_string(str);
 }

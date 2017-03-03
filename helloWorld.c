@@ -4,52 +4,7 @@
  * 	Add control for the first profile.
  */
 
-
-#include <avr/io.h>
-#include <avr/iom644p.h> //Remove the error unresolved constant.
-#include <avr/interrupt.h>
-#include <avr/delay.h> //added for sleep.
-#include <stdlib.h>
-#include <stdio.h>
-#include "lcd.h"
-#define F_CPU 12000000UL //added to change CPU speed to 12MHz UL=unsigned long.
-
-//DEFINITION: ADC
-#define BBVOLTAGE PINA0
-#define BBCURRENT PINA1
-#define WCURRENT  PINA2	//wind current
-#define SCURRENT  PINA3 //solar current
-
-//DEFINITION: DATA-PRITING -- dtostrf -- change PREC to change precision.
-#define WD 3
-#define PREC 2
-
-//DEFINITION: GLOBAL TIMER
-#define OCR1A_VAL 46874 //4 overflow/second. 4 -> 46874. 5 -> 37499
-#define PERIOD_OV 1/OCR1A_VAL
-
-//DEFINITION: DIGITAL INPUT
-#define DDRIN DDRA
-#define PORTIN PORTA
-#define PININ PINA
-#define CLOAD1 PA4 //call load
-#define CLOAD2 PA5
-#define CLOAD3 PA6
-
-//DEFINITION: DIGITAL OUTPUT
-#define DDROUT DDRD
-#define PORTOUT PORTD
-#define PINOUT PIND
-#define CBATT PD0 //Charge battery pin
-#define DBATT PD1 //Discharge battery pin
-#define SLOAD1 PD2 //switch load
-#define SLOAD2 PD3
-#define SLOAD3 PD4
-
-//DEFINITION: LOAD CURRENT LIST
-#define I1 0.8
-#define I2 1.8
-#define I3 1.4
+#include "helloWorld.h"
 
 //FUNCTION LIST
 void init_usr_intfc();

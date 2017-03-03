@@ -34,7 +34,7 @@ typedef struct {
 	uint16_t top, bottom;
 } rectangle;
 
-uint16_t start_x, start_y, mid_point;
+uint16_t start_x, start_y, value_column, unit_column;
 
 void init_lcd();
 void set_orientation(orientation o);
