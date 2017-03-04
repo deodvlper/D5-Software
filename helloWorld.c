@@ -133,13 +133,18 @@ int main()
 void init_usr_intfc()	
 {
 	/*draws the main theme, sets up table*/
-	//TEAM H title bar
-	rectangle top_bar = {.left=0, .right=display.width, .top=0, .bottom=17};
-	fill_rectangle(top_bar, WHITE);
-	change_position(1,2);
-	change_foreground(BLACK);
-	change_background(WHITE);
-	display_string("Team H");
+    //Clears screen, makes black, ready for data
+    rectangle clear_screen = {.left=0, .right=(display.width-1), .top=0, .bottom=display.height};
+    fill_rectangle(clear_screen, BLACK);
+
+    //TEAM H title bar
+    rectangle top_bar = {.left=0, .right=(display.width-1), .top=0, .bottom=19};
+    fill_rectangle(top_bar, WHITE);
+
+    change_position(13,2);
+    change_foreground(BLACK);
+    change_background(WHITE);
+    display_string("Team H");
 
 	//Status frame
 	rectangle outter_rect = {.left=5, .right=display.width-5, .top=top_bar.bottom+13, .bottom=display.height-5};
