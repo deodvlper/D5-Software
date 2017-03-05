@@ -8,6 +8,7 @@
 
 //GLOBAL VARIABLES
 volatile uint8_t counter = 0; 		//used double for testing. Change to uint16_t when no need display. --> 20/2/17 changed to uint16_t
+									//counter is the real time in seconds
 volatile uint8_t temp = 0;			//used in the interrupt as a temporary variable for the 'counter' variable
 volatile uint16_t bb_volt_data = 0;
 volatile uint16_t bb_curr_data = 0;
@@ -16,8 +17,8 @@ volatile uint16_t new_data = 0; 	//checking if it's a new data
 ISR(TIMER0_COMPA_vect)
 {
 	/* Reading ADC when compare match  */
-	bb_volt_data=read_adc(BBVOLTAGE);
-	bb_curr_data=read_adc(BBCURRENT);
+	bb_volt_data = read_adc(BBVOLTAGE);
+	bb_curr_data = read_adc(BBCURRENT);
 	new_data=1;
 	
 	temp += 1;
@@ -60,14 +61,6 @@ int main()
 	sei(); 						//enable interrupt
 
 	//TESTING VARIABLE
-	update_table(0,0,"voltage:");
-	update_table(1,0, "current:");
-	update_table(2,0,"avg pwr:");
-	update_table(3,0, "energy:");
-	update_table(0,2, "V");
-	update_table(1,2, "A");
-	update_table(2,2, "W");
-	update_table(3,2, "?");
 	double current=0;
 	double voltage=0;
 	double test;
@@ -77,11 +70,11 @@ int main()
 		if(new_data)
 		{
 			//TAKE DATA IN.
-			cli();//disable global interrupt -- prevent unatomic operation
-			bb_v_sample=bb_volt_data;
-			bb_c_sample=bb_curr_data;
-			new_data=0;
-			sei();//enable global interrupt
+			cli();						//disable global interrupt -- prevent unatomic operation
+			bb_v_sample = bb_volt_data;
+			bb_c_sample = bb_curr_data;
+			new_data = 0;
+			sei();						//enable global interrupt
 
 			//INTEGRATING AND AVERAGING
 			update_energy(&bb_v_sample, &bb_c_sample, &sample, &total_energy);
@@ -104,28 +97,30 @@ int main()
 		current = (double)((bb_c_sample/1023.0)*6.6-3.3);
 		voltage = (double)((bb_v_sample/1023.0)*6.6-3.3);
 
+/*
 		test = (double)counter;
 		printNumber(&test, dataToStrBuff, sprintfBuff, 4,1);
-
 		printNumber(&voltage, dataToStrBuff, sprintfBuff, 0,1);
 		printNumber(&current, dataToStrBuff, sprintfBuff, 1,1);
 		printNumber(&avg_power, dataToStrBuff, sprintfBuff, 2,1);
 		printNumber(&total_energy, dataToStrBuff, sprintfBuff,3,1);
+*/
 
-//		if( (counter%2==0) & !updated)
-//		{
-//			//UPDATING PER 1/2 SECOND
-//
-//
-//			updated=1;
-//		}
-//		else if(counter%2!=0)
-//		{
-//			//PREVENTING TO BE UPDATED SO MANY TIMES IN 1/2 A SECOND.
-//			updated=0;
-//		}
+/*
+		if( (counter%2==0) & !updated)
+		{
+			//UPDATING PER 1/2 SECOND
+
+
+			updated=1;
+		}
+		else if(counter%2!=0)
+		{
+			//PREVENTING TO BE UPDATED SO MANY TIMES IN 1/2 A SECOND.
+			updated=0;
+		}
+*/
 	}
-
 
 	return 0;
 }
@@ -160,6 +155,31 @@ void init_usr_intfc()
 
 	//Setting up tabling grid starting point
 	init_table(inner_rect.left, inner_rect.top);
+	
+	//Writes the text
+	update_table(0,0, "C1:");
+	update_table(1,0, "C2:");
+	update_table(2,0, "C3:");
+	
+	update_table(0,2, "S1:");
+	update_table(1,2, "S2:");
+	update_table(2,2, "S3:");
+	
+	update_table(3,0, "I_Mains:");
+	update_table(4,0, "I_Wind:");
+	update_table(5,0, "I_Solar:");
+	
+	update_table(6,0, "Battery");
+	
+	update_table(7,0, "BB_V");
+	update_table(8,0, "BB_C");
+	
+	update_table(3,3, "%");
+	update_table(4,3, "A");
+	update_table(5,3, "A");
+	update_table(6,3, "J");
+	update_table(7,3, "V");
+	update_table(8,3, "A");
 }
 
 void init_adc()			 
@@ -240,17 +260,10 @@ double get_time()
 uint16_t read_adc(uint8_t channelNum)
 {
 	/* Function to read ADC Values */
-	ADMUX = channelNum; //change channel
-	ADCSRA |= _BV(ADSC); //start conversion
-	while(ADCSRA & _BV(ADSC)){}; //wait until the ADC conversion is done.
-	return ADC; //return the ADC data after ready.
-}
-
-void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power)
-{
-	/* UPDATE AVG REV 2*/ 
-	//NOW GET AVERAGE FROM TOTAL VALUE.
-	*avg_power = *total_energy / (*sample * 0.0016); //divide by the total time
+	ADMUX = channelNum; 			//change channel
+	ADCSRA |= _BV(ADSC); 			//start conversion
+	while(ADCSRA & _BV(ADSC)){}; 	//wait until the ADC conversion is done.
+	return ADC; 					//return the ADC data after ready.
 }
 
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy)
@@ -259,6 +272,13 @@ void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, u
 	*sample+=1;
 	*total_energy += ((*voltage_read/1023.0)*6.6-3.3) * ((*current_read/1023.0)*6.6-3.3) * 0.0016; //0.0016 is sampling period of 625Hz.
 	//*total_energy += ((*voltage_read/1023.0)*6.6-3.3)*((*voltage_read/1023.0)*6.6-3.3);
+}
+
+void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power)
+{
+	/* UPDATE AVG REV 2*/ 
+	//NOW GET AVERAGE FROM TOTAL VALUE.
+	*avg_power = *total_energy / (*sample * 0.0016); //divide by the total time
 }
 
 void printNumber(double* value, char* dataToStrBuff, char* sprintfBuff, uint8_t row, uint8_t col)

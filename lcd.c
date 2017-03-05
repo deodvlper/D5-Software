@@ -186,13 +186,16 @@ void update_table(uint16_t row, uint16_t col, char *str)
 	switch (col) 
 		{
 			case 0 :	
-						change_position(start_x ,      start_y + (row * 16) );
-						break;
+						change_position(start_x ,      start_y + (row * 16) );	//first  argument is the x position (what column)
+						break;													//second argument is the y position (what row)
 			case 1 :	
-						change_position(value_column , start_y + (row * 16) );
+						change_position((display.width*0.25) , start_y + (row * 16) );
 						break;
 			case 2 :	
-						change_position(unit_column ,  start_y + (row * 16) );
+						change_position((display.width*0.50) ,  start_y + (row * 16) );
+						break;
+			case 3 :	
+						change_position((display.width*0.75) ,  start_y + (row * 16) );
 						break;
 		}
 	//the height always add 16 to the next one.
