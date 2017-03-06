@@ -173,8 +173,8 @@ void init_table(uint16_t x_str, uint16_t y_start )
 {
 	start_x = x_str+8; //offset from right one 1 pixel.
 	start_y = y_start+10; //do down from the "status" text.
-	value_column = (display.width/2) - 16;
-	unit_column = (display.width*0.9);
+	//value_column = (display.width/2) - 16;
+	//unit_column = (display.width*0.9);
 }
 
 void update_table(uint16_t row, uint16_t col, char *str)
@@ -196,6 +196,9 @@ void update_table(uint16_t row, uint16_t col, char *str)
 						break;
 			case 3 :	
 						change_position((display.width*0.75) ,  start_y + (row * 16) );
+						break;
+			case 4 :	
+						change_position((display.width*0.90) ,  start_y + (row * 16) );		//for the units
 						break;
 		}
 	//the height always add 16 to the next one.

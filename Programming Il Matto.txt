@@ -1,4 +1,3 @@
-avr-gcc -mmcu=atmega644p -DF_CPU=12000000 -Wall -Os helloWorld.c -o helloWorld.elf
 avr-gcc -mmcu=atmega644p -Wall -Os helloWorld.c font.c lcd.c ili934x.c -o helloWorld.elf
 
 avr-objcopy -O ihex helloWorld.elf helloWorld.hex
@@ -11,3 +10,8 @@ avr-gcc -mmcu=atmega644p -L../lcdlib -o helloWorld.elf helloWorld.o -llcd
 avr-gcc -mmcu=atmega644p -DF_CPU=12000000 -Wall -Os helloWorld.c liblcd.a -o helloWorld.elf 			this one works
 
 avr-gcc -mmcu=atmega644p -DF_CPU=12000000 -Wall -Os -llcd -L../pong pong.c liblcd.a -o pong.elf
+
+---
+
+avr-gcc -mmcu=atmega644p -DF_CPU=12000000 -Wall -Os helloWorld.c -o helloWorld.elf
+

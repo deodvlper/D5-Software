@@ -14,6 +14,10 @@ volatile uint16_t bb_volt_data = 0;
 volatile uint16_t bb_curr_data = 0;
 volatile uint16_t new_data = 0; 	//checking if it's a new data
 
+volatile char dataToStrBuff[20]; //data (double) -> string buffer (array of chars), used in dtostrf	
+volatile char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
+								 //this is what is displayed on the LCD
+
 ISR(TIMER0_COMPA_vect)
 {
 	/* Reading ADC when compare match  */
@@ -37,8 +41,8 @@ int main()
 	init_usr_intfc();		//Created function, draws the main theme, sets up table
 
 	//VARIABLES
-	char dataToStrBuff[20]; //data (double) -> string buffer (array of chars), used in dtostrf
-	char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
+	//char dataToStrBuff[20]; //data (double) -> string buffer (array of chars), used in dtostrf
+	//char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
 							//this is what is displayed on the LCD
 
 	uint64_t sample = 0; 		//sample count
@@ -51,8 +55,14 @@ int main()
 	uint8_t load1_r = 0; 		//'_r' = request, '_s' = set.
 	uint8_t load2_r = 0;		//all of these act as boolean variables
 	uint8_t load3_r = 0;
-	uint8_t battery_c =0 ; 		//'_c' = charge, '_d' = discharge
-
+	
+	uint8_t load1_s = 0; 	
+	uint8_t load2_s = 0;		
+	uint8_t load3_s = 0;
+	
+	uint8_t battery_c = 0; 		//'_c' = charge, '_d' = discharge
+	uint8_t battery_d = 0;		//
+	
 	//INITIALIZATION
 	init_adc();					//Created function, enables ADC pins 
 	init_adc_timer();			//Created function, sets up 
@@ -61,8 +71,8 @@ int main()
 	sei(); 						//enable interrupt
 
 	//TESTING VARIABLE
-	double current=0;
-	double voltage=0;
+	double voltage = 0;
+	double current = 0;
 	double test;
 
 	while(1)
@@ -82,31 +92,32 @@ int main()
 		}
 
 		//DECISION SATEMENT FOR THE FIRST ONE
+		//taking in the load request values
 		load1_r = (get_digital(CLOAD1)) ? 1 : 0;
 		load2_r = (get_digital(CLOAD2)) ? 1 : 0;
 		load3_r = (get_digital(CLOAD3)) ? 1 : 0;
+		
+		battery_c = ((load1_r*I1+load2_r*I2+load3_r*I3) <= 3) ? 1 : 0;
 
-		battery_c = ((load1_r*I1+load2_r*I2+load3_r*I3) <= 3) ? 1:0;
-
-		set_digital(SLOAD1,load1_r);
-		set_digital(SLOAD2,load2_r);
-		set_digital(SLOAD3,load3_r);
+		set_digital(SLOAD1,load1_s);
+		set_digital(SLOAD2,load2_s);
+		set_digital(SLOAD3,load3_s);
 		set_digital(CBATT, battery_c);
+		set_digital(DBATT, battery_d);
 
 		//DIRECT SCREEN UPDATE - CHANGE LATER
-		current = (double)((bb_c_sample/1023.0)*6.6-3.3);
+		//Finding voltage and current
 		voltage = (double)((bb_v_sample/1023.0)*6.6-3.3);
+		current = (double)((bb_c_sample/1023.0)*6.6-3.3);
+
+		//Updating display
+		update_values(voltage, current, load1_r, load2_r, load3_r, load1_s, load2_s, load3_s, battery_c, battery_d);			//Update values
 
 /*
 		test = (double)counter;
 		printNumber(&test, dataToStrBuff, sprintfBuff, 4,1);
-		printNumber(&voltage, dataToStrBuff, sprintfBuff, 0,1);
-		printNumber(&current, dataToStrBuff, sprintfBuff, 1,1);
-		printNumber(&avg_power, dataToStrBuff, sprintfBuff, 2,1);
-		printNumber(&total_energy, dataToStrBuff, sprintfBuff,3,1);
-*/
 
-/*
+		
 		if( (counter%2==0) & !updated)
 		{
 			//UPDATING PER 1/2 SECOND
@@ -120,6 +131,7 @@ int main()
 			updated=0;
 		}
 */
+
 	}
 
 	return 0;
@@ -165,21 +177,22 @@ void init_usr_intfc()
 	update_table(1,2, "S2:");
 	update_table(2,2, "S3:");
 	
-	update_table(3,0, "I_Mains:");
-	update_table(4,0, "I_Wind:");
-	update_table(5,0, "I_Solar:");
+	update_table(3,0, "B_Status:");
+	update_table(4,0, "B_Level:");
+	update_table(5,0, "%_Mains:");
+	update_table(6,0, "I_Mains:");
+	update_table(7,0, "I_Wind:");
+	update_table(8,0, "I_Solar:");
+	update_table(9,0, "BB_V");
+	update_table(10,0, "BB_C");
 	
-	update_table(6,0, "Battery");
-	
-	update_table(7,0, "BB_V");
-	update_table(8,0, "BB_C");
-	
-	update_table(3,3, "%");
-	update_table(4,3, "A");
-	update_table(5,3, "A");
-	update_table(6,3, "J");
-	update_table(7,3, "V");
-	update_table(8,3, "A");
+	update_table(4,4, "J");
+	update_table(5,4, "%");
+	update_table(6,4, "A");
+	update_table(7,4, "A");
+	update_table(8,4, "A");
+	update_table(9,4, "V");
+	update_table(10,4, "A");
 }
 
 void init_adc()			 
@@ -288,3 +301,33 @@ void printNumber(double* value, char* dataToStrBuff, char* sprintfBuff, uint8_t 
 	sprintf(sprintfBuff, "%7s", dataToStrBuff);		//formats array of chars into suitable format for display
 	update_table(row, col, sprintfBuff);
 }
+
+void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d)
+{
+	printNumber(&bb_v, dataToStrBuff, sprintfBuff, 9,2);			//Update voltage value
+	printNumber(&bb_c, dataToStrBuff, sprintfBuff, 10,2);			//Update current value
+	
+	(load1_r) ? update_table(0,1, "Yes") : update_table(0,1, "No");	//Update load 1 request
+	(load2_r) ? update_table(1,1, "Yes") : update_table(1,1, "No");	//Update load 2 request
+	(load3_r) ? update_table(2,1, "Yes") : update_table(2,1, "No");	//Update load 3 request
+	
+	(load1_s) ? update_table(0,3, "Yes") : update_table(0,3, "No");	//Update load 1 request
+	(load2_s) ? update_table(1,3, "Yes") : update_table(1,3, "No");	//Update load 2 request
+	(load3_s) ? update_table(2,3, "Yes") : update_table(2,3, "No");	//Update load 3 request
+	
+	if ((battery_c == 0) && (battery_d == 0))
+		update_table(3,2, " Idle");
+	else if (battery_c == 1)
+		update_table(3,2, " Charge");
+	else 
+		update_table(3,2, " Discharge");
+}
+
+/*
+void update_load_r(uint8_t lr1, uint8_t lr2, uint8_t lr3)
+{
+	printNumber(&lr1, dataToStrBuff, sprintfBuff, 0,1);
+	printNumber(&lr2, dataToStrBuff, sprintfBuff, 1,1);
+	printNumber(&lr3, dataToStrBuff, sprintfBuff, 2,1);
+}
+*/
