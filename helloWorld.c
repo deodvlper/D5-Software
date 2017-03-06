@@ -3,6 +3,8 @@
  * 	Testing the total energy function. Does it work properly.
  * 	Add control for the first profile.
  */
+ 
+ //ASSUMING EVERYTHING IS IN AC RMS CURRENT
 
 #include "helloWorld.h"
 
@@ -10,8 +12,10 @@
 volatile uint8_t counter = 0; 		//used double for testing. Change to uint16_t when no need display. --> 20/2/17 changed to uint16_t
 									//counter is the real time in seconds
 volatile uint8_t temp = 0;			//used in the interrupt as a temporary variable for the 'counter' variable
-volatile uint16_t bb_volt_data = 0;
-volatile uint16_t bb_curr_data = 0;
+volatile uint16_t bb_volt_data = 0; //bus bar voltage
+volatile uint16_t bb_curr_data = 0; //bus bar current
+volatile uint16_t wt_curr_data = 0; //wind turbine current
+volatile uint16_t pv_curr_data = 0;	//solar panel current
 volatile uint16_t new_data = 0; 	//checking if it's a new data
 
 volatile char dataToStrBuff[20];    //data (double) -> string buffer (array of chars), used in dtostrf	
@@ -23,6 +27,8 @@ ISR(TIMER0_COMPA_vect)
 	/* Reading ADC when compare match  */
 	bb_volt_data = read_adc(BBVOLTAGE);
 	bb_curr_data = read_adc(BBCURRENT);
+	wt_curr_data = read_adc(WTCURRENT);
+	pv_curr_data = read_adc(PVCURRENT);
 	new_data=1;
 	
 	temp += 1;
@@ -48,6 +54,8 @@ int main()
 	uint64_t sample = 0; 		//sample count
 	uint16_t bb_v_sample = 0;	//updates on each sample
 	uint16_t bb_c_sample = 0;	//updates on each sample
+	uint16_t wt_c_sample = 0;	//updates on each sample
+	uint16_t pv_c_sample = 0;	//updates on each sample
 	double total_energy = 0;	
 	double avg_power = 0;	
 	uint8_t updated = 0;		//acts as a boolean variable, used for updating LCD
@@ -81,6 +89,8 @@ int main()
 	//TESTING VARIABLE
 	double voltage = 0;
 	double current = 0;
+	double wt_current = 0;
+	double pv_current = 0;
 	double test;
 
 	sei();					//enable interrupt
@@ -93,6 +103,8 @@ int main()
 			cli();						//disable global interrupt -- prevent unatomic operation
 			bb_v_sample = bb_volt_data;
 			bb_c_sample = bb_curr_data;
+			wt_c_sample = wt_curr_data;
+			pv_c_sample = pv_curr_data;
 			new_data = 0;
 			sei();						//enable global interrupt
 
@@ -119,9 +131,11 @@ int main()
 		//Finding voltage and current
 		voltage = (double)((bb_v_sample/1023.0)*6.6-3.3);
 		current = (double)((bb_c_sample/1023.0)*6.6-3.3);
-
+		wt_current = (double)((wt_c_sample/1023.0)*5);
+		pv_current = (double)((pv_c_sample/1023.0)*5);
+		
 		//Updating display
-		update_values(voltage, current, load1_r, load2_r, load3_r, load1_s, load2_s, load3_s, battery_c, battery_d, (i_mains*10));			//Update values
+		update_values(voltage, current, load1_r, load2_r, load3_r, load1_s, load2_s, load3_s, battery_c, battery_d, (i_mains*10), wt_current, pv_current);			//Update values
 
 /*
 		test = (double)counter;
@@ -208,7 +222,7 @@ void init_usr_intfc()
 void init_adc()			 
 {
 	/* Initializing ADC Pins */
-	DDRA &= ~( _BV(BBVOLTAGE) | _BV(BBCURRENT) | _BV(WCURRENT) | _BV(SCURRENT) ); //Setting 4 pins on port A as inputs
+	DDRA &= ~( _BV(BBVOLTAGE) | _BV(BBCURRENT) | _BV(WTCURRENT) | _BV(PVCURRENT) ); //Setting 4 pins on port A as inputs
 	ADCSRA |= _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1); 								  //ADC enable. Pre-scaler f_cpu/64, not free running.
 }
 
@@ -312,20 +326,22 @@ void printNumber(double* value, char* dataToStrBuff, char* sprintfBuff, uint8_t 
 	update_table(row, col, sprintfBuff);
 }
 
-void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains)
+void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains, double wt_current, double pv_current)
 {
 	printNumber(&bb_v, dataToStrBuff, sprintfBuff, 9,2);			//Update voltage value
 	printNumber(&bb_c, dataToStrBuff, sprintfBuff, 10,2);			//Update current value
 	
 	printNumber(&i_mains, dataToStrBuff, sprintfBuff, 5,2);			//Update mains current value
+	printNumber(&wt_current, dataToStrBuff, sprintfBuff, 7,2);
+	printNumber(&pv_current, dataToStrBuff, sprintfBuff, 8,2);
 	
-	(load1_r) ? update_table(0,1, "Yes") : update_table(0,1, "No");	//Update load 1 request
-	(load2_r) ? update_table(1,1, "Yes") : update_table(1,1, "No");	//Update load 2 request
-	(load3_r) ? update_table(2,1, "Yes") : update_table(2,1, "No");	//Update load 3 request
+	(load1_r) ? update_table(0,1, "Yes") : update_table(0,1, "No ");	//Update load 1 request
+	(load2_r) ? update_table(1,1, "Yes") : update_table(1,1, "No ");	//Update load 2 request
+	(load3_r) ? update_table(2,1, "Yes") : update_table(2,1, "No ");	//Update load 3 request
 	
-	(load1_s) ? update_table(0,3, "Yes") : update_table(0,3, "No");	//Update load 1 request
-	(load2_s) ? update_table(1,3, "Yes") : update_table(1,3, "No");	//Update load 2 request
-	(load3_s) ? update_table(2,3, "Yes") : update_table(2,3, "No");	//Update load 3 request
+	(load1_s) ? update_table(0,3, "Yes") : update_table(0,3, "No ");	//Update load 1 request
+	(load2_s) ? update_table(1,3, "Yes") : update_table(1,3, "No ");	//Update load 2 request
+	(load3_s) ? update_table(2,3, "Yes") : update_table(2,3, "No ");	//Update load 3 request
 	
 	if ((battery_c == 0) && (battery_d == 0))
 		update_table(3,2, " Idle");
@@ -333,4 +349,6 @@ void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, u
 		update_table(3,2, " Charge");
 	else 
 		update_table(3,2, " Discharge");
+	
+	
 }

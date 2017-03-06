@@ -10,8 +10,8 @@
 //DEFINITION: ADC
 #define BBVOLTAGE PINA0 		//busbar voltage
 #define BBCURRENT PINA1 		//busbar current
-#define WCURRENT  PINA2			//wind current
-#define SCURRENT  PINA3 		//solar current
+#define WTCURRENT PINA2			//wind current
+#define PVCURRENT PINA3 		//solar current
 
 //DEFINITION: DATA-PRITING -- dtostrf -- change PREC to change precision.
 #define WD 3
@@ -54,4 +54,4 @@ uint16_t read_adc(uint8_t channelNum);
 void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power);
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy);
 void printNumber(double* value, char* dataToStrBuff, char*sprintfBuff, uint8_t row, uint8_t col);
-void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains);		//Created function, updates the values
+void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains, double wt_current, double pv_current);		//Created function, updates the values
