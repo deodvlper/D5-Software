@@ -14,9 +14,9 @@ volatile uint16_t bb_volt_data = 0;
 volatile uint16_t bb_curr_data = 0;
 volatile uint16_t new_data = 0; 	//checking if it's a new data
 
-volatile char dataToStrBuff[20]; //data (double) -> string buffer (array of chars), used in dtostrf	
-volatile char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
-								 //this is what is displayed on the LCD
+volatile char dataToStrBuff[20];    //data (double) -> string buffer (array of chars), used in dtostrf	
+volatile char sprintfBuff[20];      //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
+								    //this is what is displayed on the LCD
 
 ISR(TIMER0_COMPA_vect)
 {
@@ -39,11 +39,11 @@ int main()
 	init_lcd();				//Premade function, configures the ports
 	set_orientation(North);	//Premade funtion, Sets in portrait mode
 	init_usr_intfc();		//Created function, draws the main theme, sets up table
-
+	
 	//VARIABLES
 	//char dataToStrBuff[20]; //data (double) -> string buffer (array of chars), used in dtostrf
 	//char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
-							//this is what is displayed on the LCD
+							  //this is what is displayed on the LCD
 
 	uint64_t sample = 0; 		//sample count
 	uint16_t bb_v_sample = 0;	//updates on each sample
@@ -63,18 +63,28 @@ int main()
 	uint8_t battery_c = 0; 		//'_c' = charge, '_d' = discharge
 	uint8_t battery_d = 0;		//
 	
+	double i_mains = 0;
+	
 	//INITIALIZATION
 	init_adc();					//Created function, enables ADC pins 
 	init_adc_timer();			//Created function, sets up 
 	init_pwm();					//sets up the registers, for the voltage output pin
 	init_digital();				//sets up the digital inputs on port A, outputs on port D
-	sei(); 						//enable interrupt
-
+ 						
+	set_digital(SLOAD1, 0);
+	set_digital(SLOAD2, 0);
+	set_digital(SLOAD3, 0);	
+	set_digital(CBATT, 0);
+	set_digital(DBATT, 0);
+	set_pwm_vout(0);
+	
 	//TESTING VARIABLE
 	double voltage = 0;
 	double current = 0;
 	double test;
 
+	sei();					//enable interrupt
+	
 	while(1)
 	{
 		if(new_data)
@@ -111,7 +121,7 @@ int main()
 		current = (double)((bb_c_sample/1023.0)*6.6-3.3);
 
 		//Updating display
-		update_values(voltage, current, load1_r, load2_r, load3_r, load1_s, load2_s, load3_s, battery_c, battery_d);			//Update values
+		update_values(voltage, current, load1_r, load2_r, load3_r, load1_s, load2_s, load3_s, battery_c, battery_d, (i_mains*10));			//Update values
 
 /*
 		test = (double)counter;
@@ -131,7 +141,7 @@ int main()
 			updated=0;
 		}
 */
-
+		//
 	}
 
 	return 0;
@@ -302,10 +312,12 @@ void printNumber(double* value, char* dataToStrBuff, char* sprintfBuff, uint8_t 
 	update_table(row, col, sprintfBuff);
 }
 
-void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d)
+void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains)
 {
 	printNumber(&bb_v, dataToStrBuff, sprintfBuff, 9,2);			//Update voltage value
 	printNumber(&bb_c, dataToStrBuff, sprintfBuff, 10,2);			//Update current value
+	
+	printNumber(&i_mains, dataToStrBuff, sprintfBuff, 5,2);			//Update mains current value
 	
 	(load1_r) ? update_table(0,1, "Yes") : update_table(0,1, "No");	//Update load 1 request
 	(load2_r) ? update_table(1,1, "Yes") : update_table(1,1, "No");	//Update load 2 request
@@ -322,12 +334,3 @@ void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, u
 	else 
 		update_table(3,2, " Discharge");
 }
-
-/*
-void update_load_r(uint8_t lr1, uint8_t lr2, uint8_t lr3)
-{
-	printNumber(&lr1, dataToStrBuff, sprintfBuff, 0,1);
-	printNumber(&lr2, dataToStrBuff, sprintfBuff, 1,1);
-	printNumber(&lr3, dataToStrBuff, sprintfBuff, 2,1);
-}
-*/

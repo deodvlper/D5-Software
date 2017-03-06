@@ -32,8 +32,8 @@
 #define CBATT PD0 				//Charge battery pin
 #define DBATT PD1 				//Discharge battery pin
 #define SLOAD1 PD2 				//Switch load 1
-#define SLOAD2 PD3				//Switch load 1
-#define SLOAD3 PD4				//Switch load 1
+#define SLOAD2 PD3				//Switch load 2
+#define SLOAD3 PD4				//Switch load 3
 
 //DEFINITION: LOAD CURRENT LIST
 #define I1 0.8
@@ -54,5 +54,4 @@ uint16_t read_adc(uint8_t channelNum);
 void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power);
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy);
 void printNumber(double* value, char* dataToStrBuff, char*sprintfBuff, uint8_t row, uint8_t col);
-void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d);		//Created function, updates the values
-void update_load_r(uint8_t lr1, uint8_t lr2, uint8_t lr3);	//Created function, updates the load requests on the display
+void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains);		//Created function, updates the values
