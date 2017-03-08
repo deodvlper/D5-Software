@@ -22,6 +22,18 @@ volatile char dataToStrBuff[20];    //data (double) -> string buffer (array of c
 volatile char sprintfBuff[20];      //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
 								    //this is what is displayed on the LCD
 
+
+volatile uint8_t battery_c 			 = 0; 			//'_c' = charge, '_d' = discharge
+volatile double charge_start_time    = 0;
+volatile double charge_end_time      = 0;
+
+volatile uint8_t battery_d 			 = 0;											
+volatile double discharge_start_time = 0;
+volatile double discharge_end_time   = 0;
+
+volatile uint8_t battery_capacity	 = 0;
+			
+
 ISR(TIMER0_COMPA_vect)
 {
 	/* Reading ADC when compare match  */
@@ -51,14 +63,16 @@ int main()
 	//char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
 							  //this is what is displayed on the LCD
 
-	uint64_t sample = 0; 		//sample count
+	uint64_t sample		 = 0; 	//sample count
+	
 	uint16_t bb_v_sample = 0;	//updates on each sample
 	uint16_t bb_c_sample = 0;	//updates on each sample
 	uint16_t wt_c_sample = 0;	//updates on each sample
 	uint16_t pv_c_sample = 0;	//updates on each sample
-	double total_energy = 0;	
-	double avg_power = 0;	
-	uint8_t updated = 0;		//acts as a boolean variable, used for updating LCD
+	
+	double total_energy  = 0;	
+	double avg_power     = 0;	
+	uint8_t updated      = 0;	//acts as a boolean variable, used for updating LCD
 
 	uint8_t load1_r = 0; 		//'_r' = request, '_s' = set.
 	uint8_t load2_r = 0;		//all of these act as boolean variables
@@ -68,9 +82,6 @@ int main()
 	uint8_t load2_s = 0;		
 	uint8_t load3_s = 0;
 	
-	uint8_t battery_c = 0; 		//'_c' = charge, '_d' = discharge
-	uint8_t battery_d = 0;		//
-	
 	double i_mains = 0;
 	
 	//INITIALIZATION
@@ -79,19 +90,22 @@ int main()
 	init_pwm();					//sets up the registers, for the voltage output pin
 	init_digital();				//sets up the digital inputs on port A, outputs on port D
  						
-	set_digital(SLOAD1, 0);
+	set_digital(SLOAD1, 0);		//Sets all loads to intiially 0
 	set_digital(SLOAD2, 0);
 	set_digital(SLOAD3, 0);	
-	set_digital(CBATT, 0);
-	set_digital(DBATT, 0);
+	set_digital(CBATT,  0);
+	set_digital(DBATT,  0);
 	set_pwm_vout(0);
 	
-	//TESTING VARIABLE
+	//LOCAL VARIABLES
 	double voltage = 0;
 	double current = 0;
-	double wt_current = 0;
-	double pv_current = 0;
+	uint16_t I_wind = 0;
+	uint16_t I_solar = 0;
 	double test;
+	
+	uint16_t I_required  = 0;
+	uint16_t I_renewable = 0;
 
 	sei();					//enable interrupt
 	
@@ -115,12 +129,50 @@ int main()
 		
 		/* 1) FUNCTION 1 Check load calls, turn off unwanted loads, calculate required current, store in variable */
 		
-		
+		load1_r = (get_digital(CLOAD1)) ? 1 : 0;	//store load call in local variable
+		if (load1_r == 0)
+			{
+				load1_s = load1_r;
+				set_digital(SLOAD1,load1_s);		//if load call is 0, set switch to 0
+			}
+			
+		load2_r = (get_digital(CLOAD2)) ? 1 : 0;	//store load call in local variable
+		if (load2_r == 0)
+			{
+				load2_s = load2_r;	
+				set_digital(SLOAD1,load2_s);		//if load call is 0, set switch to 0
+			}
+			
+		load3_r = (get_digital(CLOAD3)) ? 1 : 0;	//store load call in local variable
+		if (load3_r == 0)
+			{
+				load3_s = load3_r;
+				set_digital(SLOAD1,load3_s);		//if load call is 0, set switch to 0
+			}
+			
+		I_required = (load1_r * I1) + (load2_r * I2) + (load3_r * I3);		//finding required current 
 		
 		/* 2) FUNCTION 2 Use ADC single read of WT and PV to find current from renewables, store in variable */
 		
+		I_wind  = read_adc(WTCURRENT);	//obtain ADC value from 0 to 1023
+		I_wind  = (I_wind/1023.0) * 5;	//turns ADC value into the respective current
+		
+		I_solar = read_adc(PVCURRENT);	//obtain ADC value from 0 to 1023
+		I_solar = (I_solar/1023.0) * 5;	//turns ADC value into the respective current
+	
+		I_renewable = I_wind + I_solar; 
 		
 		/* 3) DECISION MAKING BLOCKS */
+		
+		if (I_renewable > I_required)
+			{
+				if (battery_d == 1)
+					{
+						battery_d = 0;
+						battery_control(0,1);	//stops discharging if it is discharging
+					}
+			}
+		
 		
 		
 		/* 4) CONNECT UP LOADS, CONTROL BLOCK */
@@ -145,11 +197,11 @@ int main()
 		//Finding voltage and current
 		voltage = (double)((bb_v_sample/1023.0)*6.6-3.3);
 		current = (double)((bb_c_sample/1023.0)*6.6-3.3);
-		wt_current = (double)((wt_c_sample/1023.0)*5);
-		pv_current = (double)((pv_c_sample/1023.0)*5);
+		I_wind = (double)((wt_c_sample/1023.0)*5);
+		I_solar = (double)((pv_c_sample/1023.0)*5);
 		
 		//Updating display
-		update_values(voltage, current, load1_r, load2_r, load3_r, load1_s, load2_s, load3_s, battery_c, battery_d, (i_mains*10), wt_current, pv_current);			//Update values
+		update_values(voltage, current, load1_r, load2_r, load3_r, load1_s, load2_s, load3_s, battery_c, battery_d, (i_mains*10), I_wind, I_solar);			//Update values
 
 
 		test = (double)counter;
@@ -340,14 +392,14 @@ void printNumber(double* value, char* dataToStrBuff, char* sprintfBuff, uint8_t 
 	update_table(row, col, sprintfBuff);
 }
 
-void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains, double wt_current, double pv_current)
+void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains, double I_wind, double I_solar)
 {
 	printNumber(&bb_v, dataToStrBuff, sprintfBuff, 9,2);			//Update voltage value
 	printNumber(&bb_c, dataToStrBuff, sprintfBuff, 10,2);			//Update current value
 	
 	printNumber(&i_mains, dataToStrBuff, sprintfBuff, 5,2);			//Update mains current value
-	printNumber(&wt_current, dataToStrBuff, sprintfBuff, 7,2);
-	printNumber(&pv_current, dataToStrBuff, sprintfBuff, 8,2);
+	printNumber(&I_wind, dataToStrBuff, sprintfBuff, 7,2);
+	printNumber(&I_solar, dataToStrBuff, sprintfBuff, 8,2);
 	
 	(load1_r) ? update_table(0,1, "Yes") : update_table(0,1, "No ");	//Update load 1 request
 	(load2_r) ? update_table(1,1, "Yes") : update_table(1,1, "No ");	//Update load 2 request
@@ -363,6 +415,37 @@ void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, u
 		update_table(3,2, " Charge");
 	else 
 		update_table(3,2, " Discharge");
-	
-	
+}
+
+void battery_control(uint8_t charge_control, uint8_t discharge_control)
+{
+	if (charge_control == 1)
+		{
+			if (battery_c == 1)
+				{
+					set_digital(CBATT, battery_c);		//start charging the battery
+					charge_start_time = get_time();		//record charging start time
+				}
+			if (battery_c == 0)
+				{
+					set_digital(CBATT, battery_c);		//stop charging the battery
+					charge_end_time = get_time();		//record charging end time
+					battery_capacity += (charge_end_time - charge_start_time);
+				}
+		}
+		
+	if (discharge_control == 0)
+		{
+			if (battery_d == 1)
+				{
+					set_digital(DBATT, battery_d);		//start discharging the battery
+					discharge_start_time = get_time();	//record discharging start time
+				}
+			if (battery_d == 0)
+				{
+					set_digital(DBATT, battery_d);		//stop discharging the battery
+					discharge_end_time = get_time();	//record discharging end time
+					battery_capacity -= (discharge_end_time - discharge_start_time);
+				}			
+		}
 }
