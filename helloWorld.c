@@ -9,37 +9,17 @@
 #include "helloWorld.h"
 
 //GLOBAL VARIABLES
-volatile uint32_t counter = 0;  //32 bits counter handling 1ms interval.
-volatile uint8_t second = 0; //testing second.
-volatile uint16_t bb_volt_data = 0; //bus bar voltage
-volatile uint16_t bb_curr_data = 0; //bus bar current
-volatile uint16_t wt_curr_data = 0; //wind turbine current
-volatile uint16_t pv_curr_data = 0;	//solar panel current
-volatile uint16_t new_data = 0; 	//checking if it's a new data
+volatile uint32_t counter = 0;  //32 bits counter handling 1ms interval. -->moved back to 32bits
 
 volatile char dataToStrBuff[20];    //data (double) -> string buffer (array of chars), used in dtostrf
 volatile char sprintfBuff[20];      //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
 								    //this is what is displayed on the LCD
 
-ISR(TIMER0_COMPA_vect)
-{
-	/* Reading ADC when compare match  */
-	bb_volt_data = read_adc(BBVOLTAGE);
-	bb_curr_data = read_adc(BBCURRENT);
-	wt_curr_data = read_adc(WTCURRENT);
-	pv_curr_data = read_adc(PVCURRENT);
-	new_data=1;
-}
-
+//INTERRUPT SERIVE ROUTINE (ISR)
 ISR(TIMER1_COMPA_vect)
 {
   /* Adding global counter */
   counter+=1;
-	if (counter==1000)
-	{
-		second+=1;
-		counter=0;
-	}
 }
 
 int main()
@@ -53,15 +33,16 @@ int main()
 	//char dataToStrBuff[20]; //data (double) -> string buffer (array of chars), used in dtostrf
 	//char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
 							  //this is what is displayed on the LCD
-
 	uint64_t sample = 0; 		//sample count
 	uint16_t bb_v_sample = 0;	//updates on each sample
+	uint16_t bb_v_amp = 0;
 	uint16_t bb_c_sample = 0;	//updates on each sample
+	uint16_t bb_c_amp = 0;
 	uint16_t wt_c_sample = 0;	//updates on each sample
 	uint16_t pv_c_sample = 0;	//updates on each sample
 	double total_energy = 0;
 	double avg_power = 0;
-	uint8_t updated = 0;		//acts as a boolean variable, used for updating LCD
+	uint8_t lcd_count = 0;		//acts as a boolean variable, used for updating LCD
 
 	uint8_t load1_r = 0; 		//'_r' = request, '_s' = set.
 	uint8_t load2_r = 0;		//all of these act as boolean variables
@@ -74,11 +55,12 @@ int main()
 	uint8_t battery_c = 0; 		//'_c' = charge, '_d' = discharge
 	uint8_t battery_d = 0;		//
 
+	uint32_t peak_end_time = 0;
+
 	double i_mains = 0;
 
 	//INITIALIZATION
 	init_adc();					//Created function, enables ADC pins
-	//init_adc_timer();			//Created function, sets up
 	init_global_timer();
 	init_pwm();					//sets up the registers, for the voltage output pin
 	init_digital();				//sets up the digital inputs on port A, outputs on port D
@@ -128,11 +110,41 @@ int main()
 
 
 		/* 4) CONNECT UP LOADS, CONTROL BLOCK */
+		//PEAK FINDER
+		peak_end_time = counter + 10;
+		bb_v_sample = 0; 	//reset value of bb var(s) every starting point.
+		bb_v_sample = 0;
+		bb_v_amp = 0;
+		bb_c_amp = 0;
+
+		while(counter<peak_end_time)
+		{
+			//sampling bb voltage and current
+			bb_v_sample = abs(read_adc(BBVOLTAGE));
+			bb_c_sample = abs(read_adc(BBCURRENT));
+
+			//finding peak.
+			if(bb_v_sample>bb_v_amp)
+			{
+				bb_v_amp=bb_v_sample;
+			}
+			if(bb_c_sample>bb_c_amp)
+			{
+				bb_c_amp=bb_c_sample;
+			}
+		}
+
 
 		/* 5) DISPLAYING ON THE LCD */
-		test = (double) second;
-		printNumber(&test, dataToStrBuff, sprintfBuff, 10,1);
+		//Displaying per second
+		lcd_count++;
 
+		if(lcd_count==25) //vary this to change screen update speed.
+		{
+			test = (double) bb_c_amp;
+			printNumber(&test, dataToStrBuff, sprintfBuff, 10,1);
+			lcd_count=0; //reset count for updating the screen.
+		}
 
 		/*
 		//DECISION SATEMENT FOR THE FIRST ONE
@@ -246,15 +258,6 @@ void init_adc()
 	/* Initializing ADC Pins */
 	DDRA &= ~( _BV(BBVOLTAGE) | _BV(BBCURRENT) | _BV(WTCURRENT) | _BV(PVCURRENT) ); //Setting 4 pins on port A as inputs
 	ADCSRA |= _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1); 								  //ADC enable. Pre-scaler f_cpu/64, not free running.
-}
-
-void init_adc_timer()
-{
-	/* Timer for ADC sampling at 625 Hz*/
-	TCCR0A |= _BV(WGM01); 			//CTC MODE
-	TCCR0B |= _BV(CS02); 			//256 PRESCALER
-	OCR0A = 74; 					//COMPARE VALUE
-	TIMSK0 |= _BV(OCIE0A); 			//ENABLING INTERRUPT COMAPRE A
 }
 
 void init_global_timer()

@@ -43,7 +43,6 @@
 //FUNCTION LIST
 void init_usr_intfc();			//Created function, draws the main theme, sets up table
 void init_adc();				//Created function, enables ADC pins
-void init_adc_timer();
 void init_global_timer();  //added to replace the global timer.
 void init_pwm();				//Sets up the registers, for the voltage output pin
 void init_digital();			//Sets up the digital inputs on port A, outputs on port D
