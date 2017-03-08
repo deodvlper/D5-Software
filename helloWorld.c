@@ -120,8 +120,8 @@ int main()
 		while(counter<peak_end_time)
 		{
 			//sampling bb voltage and current
-			bb_v_sample = abs(read_adc(BBVOLTAGE));
-			bb_c_sample = abs(read_adc(BBCURRENT));
+			bb_v_sample = abs(read_adc(BBVOLTAGE)-511); //Mid point (1024/2)-1=511
+			bb_c_sample = abs(read_adc(BBCURRENT)-511);
 
 			//finding peak.
 			if(bb_v_sample>bb_v_amp)
@@ -139,9 +139,9 @@ int main()
 		//Displaying per second
 		lcd_count++;
 
-		if(lcd_count==25) //vary this to change screen update speed.
+		if(lcd_count==5) //vary this to change screen update speed.
 		{
-			test = (double) bb_c_amp;
+			test = bb_c_amp/512.0*3.3;
 			printNumber(&test, dataToStrBuff, sprintfBuff, 10,1);
 			lcd_count=0; //reset count for updating the screen.
 		}
