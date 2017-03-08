@@ -3,14 +3,8 @@
  * 	Testing the total energy function. Does it work properly.
  * 	Add control for the first profile.
  */
- 
-//From Fransiskus's branch. 
 
  //ASSUMING EVERYTHING IS IN AC RMS CURRENT
-
- 
-// Ricki's branch comment
-// Ricki's branch comment 2
  
 #include "helloWorld.h"
 
@@ -104,21 +98,35 @@ int main()
 	while(1)
 	{
 		if(new_data)
-		{
-			//TAKE DATA IN.
-			cli();						//disable global interrupt -- prevent unatomic operation
-			bb_v_sample = bb_volt_data;
-			bb_c_sample = bb_curr_data;
-			wt_c_sample = wt_curr_data;
-			pv_c_sample = pv_curr_data;
-			new_data = 0;
-			sei();						//enable global interrupt
+			{
+				//TAKE DATA IN.
+				cli();						//disable global interrupt -- prevent unatomic operation
+				bb_v_sample = bb_volt_data;
+				bb_c_sample = bb_curr_data;
+				wt_c_sample = wt_curr_data;
+				pv_c_sample = pv_curr_data;
+				new_data = 0;
+				sei();						//enable global interrupt
 
-			//INTEGRATING AND AVERAGING
-			update_energy(&bb_v_sample, &bb_c_sample, &sample, &total_energy);
-			update_avg(&total_energy, &sample, &avg_power);
-		}
-
+				//INTEGRATING AND AVERAGING
+				//update_energy(&bb_v_sample, &bb_c_sample, &sample, &total_energy);
+				//update_avg(&total_energy, &sample, &avg_power);
+			}
+		
+		/* 1) FUNCTION 1 Check load calls, turn off unwanted loads, calculate required current, store in variable */
+		
+		
+		
+		/* 2) FUNCTION 2 Use ADC single read of WT and PV to find current from renewables, store in variable */
+		
+		
+		/* 3) DECISION MAKING BLOCKS */
+		
+		
+		/* 4) CONNECT UP LOADS, CONTROL BLOCK */
+		
+		
+		/*
 		//DECISION SATEMENT FOR THE FIRST ONE
 		//taking in the load request values
 		load1_r = (get_digital(CLOAD1)) ? 1 : 0;
@@ -143,7 +151,7 @@ int main()
 		//Updating display
 		update_values(voltage, current, load1_r, load2_r, load3_r, load1_s, load2_s, load3_s, battery_c, battery_d, (i_mains*10), wt_current, pv_current);			//Update values
 
-/*
+
 		test = (double)counter;
 		printNumber(&test, dataToStrBuff, sprintfBuff, 4,1);
 
