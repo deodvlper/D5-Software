@@ -47,6 +47,7 @@ void init_adc();				//Created function, enables ADC pins
 void init_global_timer();  //added to replace the global timer.
 void init_pwm();				//Sets up the registers, for the voltage output pin
 void init_digital();			//Sets up the digital inputs on port A, outputs on port D
+void init_loads_pwm();
 void set_pwm_vout(double vin);
 uint8_t get_digital(uint8_t pin);
 void set_digital(uint8_t pin, uint8_t val);

@@ -1,10 +1,10 @@
  //ASSUMING EVERYTHING IS IN AC RMS CURRENT
+ //CHECK VOLTAGE.
 
 #include "helloWorld.h"
 
 //GLOBAL VARIABLES
-volatile uint32_t counter = 0;  //32 bits counter handling 1ms interval. -->moved back to 32bits
-
+volatile uint32_t counter = 0;  //32 bits counter handling 1ms interval
 volatile char dataToStrBuff[20];    //data (double) -> string buffer (array of chars), used in dtostrf
 volatile char sprintfBuff[20];      //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
 								    //this is what is displayed on the LCD
@@ -18,86 +18,70 @@ ISR(TIMER1_COMPA_vect)
 
 int main()
 {
-	//LCD INITIALIZATION
-	init_lcd();				//Premade function, configures the ports
-	set_orientation(North);	//Premade funtion, Sets in portrait mode
-	init_usr_intfc();		//Created function, draws the main theme, sets up table
 
-	//VARIABLES
-	//char dataToStrBuff[20]; //data (double) -> string buffer (array of chars), used in dtostrf
-	//char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
-							  //this is what is displayed on the LCD
-	uint64_t sample = 0; 		//sample count
-	uint16_t wt_c_sample = 0;	//updates on each sample
-	uint16_t pv_c_sample = 0;	//updates on each sample
-	double total_energy = 0;
-	double avg_power = 0;
-	uint8_t lcd_count = 0;		//acts as a boolean variable, used for updating LCD
+  //VARIABLES
+  uint16_t wt_c_sample = 0;	//updates on each sample
+  uint16_t pv_c_sample = 0;	//updates on each sample
+  uint8_t lcd_count = 0;		//acts as a boolean variable, used for updating LCD
 
-	uint8_t load1_r = 0; 		//'_r' = request, '_s' = set.
-	uint8_t load2_r = 0;		//all of these act as boolean variables
-	uint8_t load3_r = 0;
+  uint8_t load1_r = 0; 		//'_r' = request, '_s' = set.
+  uint8_t load2_r = 0;		//all of these act as boolean variables
+  uint8_t load3_r = 0;
 
-	uint8_t load1_s = 0;
-	uint8_t load2_s = 0;
-	uint8_t load3_s = 0;
+  uint8_t load1_s = 0;
+  uint8_t load2_s = 0;
+  uint8_t load3_s = 0;
 
-	uint8_t battery_c = 0; 		//'_c' = charge, '_d' = discharge
-	uint8_t battery_d = 0;		//
+  uint8_t battery_c = 0; 		//'_c' = charge, '_d' = discharge
+  uint8_t battery_d = 0;
 
-	uint32_t peak_end_time = 0;
-
-	double i_mains = 0;
+  double i_total_need = 0;
+  double i_renew_total = 0;
 
 	//INITIALIZATION
+  init_lcd();				//Premade function, configures the ports
+  set_orientation(North);	//Premade funtion, Sets in portrait mode
+  init_usr_intfc();		//Created function, draws the main theme, sets up table
+
 	init_adc();					//Created function, enables ADC pins
 	init_global_timer();
 	init_pwm();					//sets up the registers, for the voltage output pin
 	init_digital();				//sets up the digital inputs on port A, outputs on port D
+  init_loads_pwm(); //all outputs to zero.
 
-	set_digital(SLOAD1, 0);
-	set_digital(SLOAD2, 0);
-	set_digital(SLOAD3, 0);
-	set_digital(CBATT, 0);
-	set_digital(DBATT, 0);
-	set_pwm_vout(0);
+  //START GLOBAL INTERRUPT
+	sei();
 
-	//TESTING VARIABLE
-	double voltage = 0;
-	double current = 0;
-	double wt_current = 0;
-	double pv_current = 0;
-	double test;
-
-	sei();					//enable interrupt
+  //TESTING VARIABLE
+  double test;
 
 	while(1)
 	{
-		// if(new_data)
-		// 	{
-		// 		//TAKE DATA IN.
-		// 		cli();						//disable global interrupt -- prevent unatomic operation
-		// 		bb_v_sample = bb_volt_data;
-		// 		bb_c_sample = bb_curr_data;
-		// 		wt_c_sample = wt_curr_data;
-		// 		pv_c_sample = pv_curr_data;
-		// 		new_data = 0;
-		// 		sei();						//enable global interrupt
-		//
-		// 		//INTEGRATING AND AVERAGING
-		// 		//update_energy(&bb_v_sample, &bb_c_sample, &sample, &total_energy);
-		// 		//update_avg(&total_energy, &sample, &avg_power);
-		// 	}
 
 		/* 1) FUNCTION 1 Check load calls, turn off unwanted loads, calculate required current, store in variable */
+    //checking load calls.
+    load1_r = (get_digital(CLOAD1)) ? 1:0;
+    load2_r = (get_digital(CLOAD2)) ? 1:0;
+    load3_r = (get_digital(CLOAD3)) ? 1:0;
 
-
+    //total current needed.
+    i_total_need = load1_r*I1 + load2_r*I2 + load3_r*I3;
 
 		/* 2) FUNCTION 2 Use ADC single read of WT and PV to find current from renewables, store in variable */
-
+    //reading the value
+    pv_c_sample = read_adc(PVCURRENT);
+    wt_c_sample = read_adc(WTCURRENT);
+    i_renew_total = (pv_c_sample/1023.0)*5 + (wt_c_sample/1023.0)*5; //total current can be supp by renew in rms.
 
 		/* 3) DECISION MAKING BLOCKS */
+    if(i_renew_total>i_total_need)
+    {
 
+    }
+    else if(i_renew_total<i_total_need)
+    {
+
+    }
 
 		/* 4) CONNECT UP LOADS, CONTROL BLOCK */
 		//PEAK FINDER
@@ -265,6 +249,17 @@ void init_digital()
 	PORTIN &= ~(_BV(CLOAD1) | _BV(CLOAD2) | _BV(CLOAD3)); 						 //HI-Z input. No pull up because no switch
 	DDROUT |= _BV(CBATT) | _BV(DBATT) | _BV(SLOAD1) | _BV(SLOAD2) | _BV(SLOAD3); //setting outputs
 	PINOUT = 0; 																 //initially all output==0;
+}
+
+void init_loads_pwm()
+{
+  /* Initialising the load and pwm out */
+  set_digital(SLOAD1, 0);
+  set_digital(SLOAD2, 0);
+  set_digital(SLOAD3, 0);
+  set_digital(CBATT, 0);
+  set_digital(DBATT, 0);
+  set_pwm_vout(0);
 }
 
 void set_pwm_vout(double vin)
