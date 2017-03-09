@@ -350,6 +350,20 @@ uint16_t read_adc(uint8_t channelNum)
 	return ADC; 					//return the ADC data after ready.
 }
 
+void battery_stop(uint8_t mode, const uint32_t* start_time, uint32_t* total_time)
+{
+  //end charging
+  if(mode)
+  {
+      *total_time += (counter-*start_time); //add the delta time.
+  }
+  //end discharging
+  else
+  {
+    *total_time -= (counter-*start_time); //minus the delta time after discharging.
+  }
+}
+
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy)
 {
 	/* Updating the total energy*/

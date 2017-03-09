@@ -41,6 +41,10 @@
 #define I2 1.8
 #define I3 1.4
 
+//DEFINITION CHARGE/DISCHARGE BATTERY
+#define CHARGING 1
+#define DISCHARGING 0
+
 //FUNCTION LIST
 void init_usr_intfc();			//Created function, draws the main theme, sets up table
 void init_adc();				//Created function, enables ADC pins
@@ -55,6 +59,7 @@ double get_time();
 double get_v_amp(); //Note: Might mix both sampling to save time if needed.
 double get_c_amp();
 uint16_t read_adc(uint8_t channelNum);
+void battery_stop(uint8_t mode, const uint32_t* start_time, uint32_t* total_time);
 void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power);
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy);
 void printNumber(double* value, char* dataToStrBuff, char*sprintfBuff, uint8_t row, uint8_t col);
