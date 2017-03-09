@@ -1,9 +1,3 @@
-/* TO DO:
- * 	Testing the averaging code after changing from = to += of line 299
- * 	Testing the total energy function. Does it work properly.
- * 	Add control for the first profile.
- */
-
  //ASSUMING EVERYTHING IS IN AC RMS CURRENT
 
 #include "helloWorld.h"
@@ -34,10 +28,6 @@ int main()
 	//char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
 							  //this is what is displayed on the LCD
 	uint64_t sample = 0; 		//sample count
-	uint16_t bb_v_sample = 0;	//updates on each sample
-	uint16_t bb_v_amp = 0;
-	uint16_t bb_c_sample = 0;	//updates on each sample
-	uint16_t bb_c_amp = 0;
 	uint16_t wt_c_sample = 0;	//updates on each sample
 	uint16_t pv_c_sample = 0;	//updates on each sample
 	double total_energy = 0;
@@ -111,29 +101,6 @@ int main()
 
 		/* 4) CONNECT UP LOADS, CONTROL BLOCK */
 		//PEAK FINDER
-		peak_end_time = counter + 10;
-		bb_v_sample = 0; 	//reset value of bb var(s) every starting point.
-		bb_v_sample = 0;
-		bb_v_amp = 0;
-		bb_c_amp = 0;
-
-		while(counter<peak_end_time)
-		{
-			//sampling bb voltage and current
-			bb_v_sample = abs(read_adc(BBVOLTAGE)-511); //Mid point (1024/2)-1=511
-			bb_c_sample = abs(read_adc(BBCURRENT)-511);
-
-			//finding peak.
-			if(bb_v_sample>bb_v_amp)
-			{
-				bb_v_amp=bb_v_sample;
-			}
-			if(bb_c_sample>bb_c_amp)
-			{
-				bb_c_amp=bb_c_sample;
-			}
-		}
-
 
 		/* 5) DISPLAYING ON THE LCD */
 		//Displaying per second
@@ -141,8 +108,10 @@ int main()
 
 		if(lcd_count==5) //vary this to change screen update speed.
 		{
-			test = bb_c_amp/512.0*3.3;
+			test = get_v_amp();
 			printNumber(&test, dataToStrBuff, sprintfBuff, 10,1);
+      test = get_c_amp();
+      printNumber(&test, dataToStrBuff, sprintfBuff, 11,1);
 			lcd_count=0; //reset count for updating the screen.
 		}
 
@@ -329,6 +298,52 @@ double get_time()
 {
 	/*Getting timer time in terms of second */
 	return (counter/5);
+}
+
+double get_v_amp() //NOTE: Amplitude value
+{
+  uint16_t bb_q_sample = 0; 	//reset value of bb var(s) every starting point.
+  uint16_t bb_q_amp = 0;
+  uint32_t peak_end_time = counter + 10; //get how long does it need to wait to get the amplitude
+
+  while(counter < peak_end_time)
+  {
+    //sampling bb volt or current
+    bb_q_sample = abs(read_adc(BBVOLTAGE)-511); //Mid point (1024/2)-1=511
+
+    //finding peak
+    if(bb_q_sample > bb_q_amp)
+    {
+      //if sample is more than prev sampled value replace it.
+      bb_q_amp=bb_q_amp;
+    }
+  }
+
+  //return value
+  return (bb_q_amp/512.0)*400; //because max input at 400V.
+}
+
+double get_c_amp() //NOTE: RMS VALUE
+{
+  uint16_t bb_q_sample = 0; 	//reset value of bb var(s) every starting point.
+  uint16_t bb_q_amp = 0;
+  uint32_t peak_end_time = counter + 10; //get how long does it need to wait to get the amplitude
+
+  while(counter < peak_end_time)
+  {
+    //sampling bb volt or current
+    bb_q_sample = abs(read_adc(BBCURRENT)-511); //Mid point (1024/2)-1=511
+
+    //finding peak
+    if(bb_q_sample > bb_q_amp)
+    {
+      //if sample is more than prev sampled value replace it.
+      bb_q_amp=bb_q_amp;
+    }
+  }
+
+  //return value
+  return (bb_q_amp/512.0)*10/sqrt(2); //because max 10v~10A amplitude rms value
 }
 
 uint16_t read_adc(uint8_t channelNum)

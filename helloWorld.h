@@ -4,6 +4,7 @@
 #include <avr/delay.h> 			//added for sleep.
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 #include "lcd.h"
 #define F_CPU 12000000UL 		//added to change CPU speed to 12MHz UL=unsigned long.
 
@@ -50,6 +51,8 @@ void set_pwm_vout(double vin);
 uint8_t get_digital(uint8_t pin);
 void set_digital(uint8_t pin, uint8_t val);
 double get_time();
+double get_v_amp(); //Note: Might mix both sampling to save time if needed.
+double get_c_amp();
 uint16_t read_adc(uint8_t channelNum);
 void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power);
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy);
