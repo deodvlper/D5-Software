@@ -126,8 +126,31 @@ int main()
 		I_renewable = I_wind + I_solar; 
 		
 		/* 3) DECISION MAKING BLOCKS */
+
 		
 		/* Enough current from renewables?*/
+  /*  if(i_renew_total>i_total_need)
+    {
+      if(battery_d==1)
+      {
+        battery_stop(DISCHARGING, &start_time, &total_time, &battery_c, &battery_d);
+      }
+
+      if( (i_renew_total-i_total_need) >= 1)
+      {
+        if(battery_c==0)
+        {
+          battery_start(CHARGING,&start_time, &battery_c, &battery_d);
+        }
+        set_digital(SLOAD1,load1_r);
+        set_digital(SLOAD2,load2_r);
+        set_digital(SLOAD3,load3_r);
+      }
+    }
+    else if(i_renew_total<i_total_need)
+    {
+*/
+		
 		if (I_renewable > I_required)
 			{	
 				/* Yes */
@@ -180,6 +203,7 @@ int main()
 							}
 					}
 			}
+
 		
 		/* When renewables is not enough to supply load*/
 		else
@@ -247,6 +271,7 @@ int main()
 					}
 			}
 		
+
 		/* 4) CONNECT UP LOADS, CONTROL BLOCK */
 		//PEAK FINDER
 
@@ -470,36 +495,44 @@ uint16_t read_adc(uint8_t channelNum)
 	return ADC; 					//return the ADC data after ready.
 }
 
-void battery_stop(uint8_t mode, const uint32_t* start_time, uint32_t* total_time)
+void battery_stop(uint8_t mode, const uint32_t* start_time, uint32_t* total_time, uint8_t* battery_c, uint8_t* battery_d )
 {
   //end charging
   if(mode)
   {
     *total_time += (counter-*start_time); //add the delta time.
     set_digital(CBATT,0); //stop charging
+    *battery_c=0; //indicating stop charging
   }
   //end discharging
   else
   {
     *total_time -= (counter-*start_time); //minus the delta time after discharging.
     set_digital(DBATT,0);//stop discharging
+    *battery_d=0; //indicating stop discharging
   }
 }
 
-void battery_start(uint8_t mode, uint32_t* start_time)
+void battery_start(uint8_t mode, uint32_t* start_time, uint8_t* battery_c, uint8_t* battery_d)
 {
   //start charging
   if(mode)
   {
     set_digital(CBATT,1); //start charging
     set_digital(DBATT,0); //stop discharging
+    *battery_c=1;
+    *battery_d=0;
   }
   //start discharging
   else
   {
     set_digital(CBATT,0); //stop charging
     set_digital(DBATT,1); //start discharging
+    *battery_c=0;
+    *battery_d=1;
   }
+
+  *start_time = counter;
 }
 
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy)
