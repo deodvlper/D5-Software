@@ -48,10 +48,10 @@
 //FUNCTION LIST
 void init_usr_intfc();			//Created function, draws the main theme, sets up table
 void init_adc();				//Created function, enables ADC pins
-void init_global_timer();  //added to replace the global timer.
+void init_global_timer();  		//added to replace the global timer.
 void init_pwm();				//Sets up the registers, for the voltage output pin
 void init_digital();			//Sets up the digital inputs on port A, outputs on port D
-void init_loads_pwm();
+void init_loads_pwm();			//Sets load switches and PWM output to zero
 void set_pwm_vout(double vin);
 uint8_t get_digital(uint8_t pin);
 void set_digital(uint8_t pin, uint8_t val);
@@ -64,6 +64,6 @@ void battery_start(uint8_t mode, uint32_t* start_time);
 void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power);
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy);
 void printNumber(double* value, char* dataToStrBuff, char*sprintfBuff, uint8_t row, uint8_t col);
-void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains, double I_wind, double I_solar);		//Created function, updates the values
+void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains, double I_wind, double I_solar, double battery_capacity);		//Created function, updates the values
 void battery_control(uint8_t charge_control, uint8_t discharge_control);
 

@@ -17,13 +17,13 @@ volatile uint8_t battery_d 			 = 0;
 volatile double discharge_start_time = 0;
 volatile double discharge_end_time   = 0;
 
-volatile uint8_t battery_capacity	 = 0;
+volatile double battery_capacity	 = 0;
 			
 //INTERRUPT SERIVE ROUTINE (ISR)
 ISR(TIMER1_COMPA_vect)
 {
   /* Adding global counter */
-  counter+=1;
+  counter += 1;
 }
 
 int main()
@@ -40,10 +40,10 @@ int main()
 
 	uint64_t sample		 = 0; 	//sample count
 	
-	uint16_t bb_v_sample = 0;	//updates on each sample
-	uint16_t bb_c_sample = 0;	//updates on each sample
-	uint16_t wt_c_sample = 0;	//updates on each sample
-	uint16_t pv_c_sample = 0;	//updates on each sample
+	//uint16_t bb_v_sample = 0;	//updates on each sample
+	//uint16_t bb_c_sample = 0;	//updates on each sample
+	//uint16_t wt_c_sample = 0;	//updates on each sample
+	//uint16_t pv_c_sample = 0;	//updates on each sample
 	
 	double total_energy  = 0;	
 	double avg_power     = 0;	
@@ -57,48 +57,40 @@ int main()
 	uint8_t load2_s = 0;		
 	uint8_t load3_s = 0;
 	
-	double i_mains = 0;
+	double I_mains = 0;
 
+	uint8_t lcd_count = 0;		//acts as a boolean variable, used for updating LCD
 
-  uint8_t lcd_count = 0;		//acts as a boolean variable, used for updating LCD
-
-
-  double i_total_need = 0;
-  double i_renew_total = 0;
-
-	//INITIALIZATION
-  init_lcd();				//Premade function, configures the ports
-  set_orientation(North);	//Premade funtion, Sets in portrait mode
-  init_usr_intfc();		//Created function, draws the main theme, sets up table
-
-	init_adc();					//Created function, enables ADC pins
-	init_global_timer();
-	init_pwm();					//sets up the registers, for the voltage output pin
-	init_digital();				//sets up the digital inputs on port A, outputs on port D
- 					
+	double i_total_need = 0;
+	double i_renew_total = 0;
 	
-	//LOCAL VARIABLES
-	double voltage = 0;
-	double current = 0;
-	uint16_t I_wind = 0;
+	double voltage   = 0;
+	double current   = 0;
+	uint16_t I_wind  = 0;
 	uint16_t I_solar = 0;
 	double test;
 	
 	uint16_t I_required  = 0;
 	uint16_t I_renewable = 0;
 
-	sei();					//enable interrupt
+	//INITIALIZATION
+	init_lcd();					//Premade function, configures the ports
+	set_orientation(North);		//Premade funtion, Sets in portrait mode
+	init_usr_intfc();			//Created function, draws the main theme, sets up table
+
+	init_adc();					//Created function, enables ADC pins
+	init_global_timer();
+	init_pwm();					//sets up the registers, for the voltage output pin
+	init_digital();				//sets up the digital inputs on port A, outputs on port D
+ 					
+	sei();						//enable interrupt
 	
-  init_loads_pwm(); //all outputs to zero.
-
-
-  //TESTING VARIABLE
-  double test;
+	init_loads_pwm(); 			//sets load switches and PWM output to zero
 
 	while(1)
 	{
 
-		/* 1) FUNCTION 1 Check load calls, turn off unwanted loads, calculate required current, store in variable */
+		/* 1) FUNCTION 1 Check load calls, turn off unwanted loads, calculate required current, store in variable I_required */
 		
 		load1_r = (get_digital(CLOAD1)) ? 1 : 0;	//store load call in local variable
 		if (load1_r == 0)
@@ -135,16 +127,126 @@ int main()
 		
 		/* 3) DECISION MAKING BLOCKS */
 		
+		/* Enough current from renewables?*/
 		if (I_renewable > I_required)
-			{
-				if (battery_d == 1)
+			{	
+				/* Yes */
+				if (battery_d == 1)				//checks if currently discharging
 					{
 						battery_d = 0;
 						battery_control(0,1);	//stops discharging if it is discharging
 					}
+					
+				/* 1A surplus current from renewables */
+				if ((I_renewable - I_required) > 1)	//checks if there is a 1A surplus (enough to charge battery)
+					{
+						if (battery_c == 1)			//checks if battery is already charging
+							{
+								//connect up loads
+								//control function
+							}
+						else 
+							{
+								//charge battery (function)
+								//connect up loads
+								//control function
+							}
+					}
+				
+				/* <1A surplus current from renewables */
+				/* Battery capacity check */
+				else if (battery_capacity > 8)	//NEED TO CHANGE, 8 IS NOT 8 ACTUAL MINUTES
+					{
+						if (battery_c == 1)					//if battery is already charging
+							{
+								//stop charging (function)	//battery capacity is enough
+							}
+						//connect up loads
+						//control function?
+					}
+				else /* Battery capacity is low, can charge*/
+					{
+						if (battery_c == 1)					//if battery is already charging
+							{
+								//connect up loads
+								//control function?
+							}
+						else 
+							{
+								//find out how much more current is needed from the mains to charge battery
+								//start charging (function)
+								//connect up loads
+								//control function
+							}
+					}
 			}
-
-
+		
+		/* When renewables is not enough to supply load*/
+		else
+			{
+				if ((I_required - I_renewable) < 1)		//if the current left to supply is less than 1A
+					/* Yes, use mains to supply deficit */
+					{
+						if (battery_d == 1)				
+							{
+								//stop discharging (function)
+							}
+						if (battery_capacity > 8)		//NEED TO CHANGE, 8 IS NOT 8 ACTUAL MINUTES
+							{
+								//find mains current to supply remaining current
+								//set PWM signal
+								//connect up loads
+								//control function
+							}
+						else 
+							{
+								if (battery_c != 1)
+									{
+										//start charging (function)
+									}
+								//find mains current to supply remaining current + battery charging
+								//set PWM signal
+								//connect up loads
+								//control function
+							}
+					}
+				else
+					/* No, use mains and possible battery to supply deficit*/ 
+					{
+						if (battery_capacity > 3)		//NEED TO CHANGE, 3 IS NOT 3 ACTUAL MINUTES (3 is used so we have spare in case power goes down)
+						/* if there is capacity, then discharge the battery */
+							{
+								if (battery_c == 1)
+									{
+										//stop charging (function)
+									}
+								if (battery_d != 1)
+									{
+										//start discharging (function)
+									}
+								//find remaining current to supply by mains
+								//set PWM signal
+								//connect up loads
+								//control function
+							}
+						else
+						/* Not enough capacity in battery, so use mains to supply deficit*/
+							{
+								if (battery_d == 1)
+									{
+										//stop discharging (function)
+									}
+								//find remaining current left to supply (I_required - I_renewable)
+								//check if ^ + ~1.2 is less than 3A
+								//if yes, then charge battery, get mains to supply
+								//if no, then just use mains to supply loads
+								
+								//connect up loads
+								//control function
+							}
+					}
+			}
+		
 		/* 4) CONNECT UP LOADS, CONTROL BLOCK */
 		//PEAK FINDER
 
@@ -152,60 +254,15 @@ int main()
 		//Displaying per second
 		lcd_count++;
 
-		if(lcd_count==5) //vary this to change screen update speed.
+		if(lcd_count == 5) //vary this to change screen update speed.
 		{
-			test = get_v_amp();
-			printNumber(&test, dataToStrBuff, sprintfBuff, 10,1);
-      test = get_c_amp();
-      printNumber(&test, dataToStrBuff, sprintfBuff, 11,1);
-			lcd_count=0; //reset count for updating the screen.
+			voltage = get_v_amp();
+			//printNumber(&test, dataToStrBuff, sprintfBuff, 9,2);
+			current = get_c_amp();
+			//printNumber(&test, dataToStrBuff, sprintfBuff, 10,2);
+			update_values(voltage, current, load1_r, load2_r, load3_r, load1_s, load2_s, load3_s, battery_c, battery_d, I_mains, I_wind, I_solar, battery_capacity);			//Update values
+			lcd_count = 0; //reset count for updating the screen.
 		}
-
-		/*
-		//DECISION SATEMENT FOR THE FIRST ONE
-		//taking in the load request values
-		load1_r = (get_digital(CLOAD1)) ? 1 : 0;
-		load2_r = (get_digital(CLOAD2)) ? 1 : 0;
-		load3_r = (get_digital(CLOAD3)) ? 1 : 0;
-
-		battery_c = ((load1_r*I1+load2_r*I2+load3_r*I3) <= 3) ? 1 : 0;
-
-		set_digital(SLOAD1,load1_s);
-		set_digital(SLOAD2,load2_s);
-		set_digital(SLOAD3,load3_s);
-		set_digital(CBATT, battery_c);
-		set_digital(DBATT, battery_d);
-
-		//DIRECT SCREEN UPDATE - CHANGE LATER
-		//Finding voltage and current
-		voltage = (double)((bb_v_sample/1023.0)*6.6-3.3);
-		current = (double)((bb_c_sample/1023.0)*6.6-3.3);
-
-		I_wind = (double)((wt_c_sample/1023.0)*5);
-		I_solar = (double)((pv_c_sample/1023.0)*5);
-		
-		//Updating display
-		update_values(voltage, current, load1_r, load2_r, load3_r, load1_s, load2_s, load3_s, battery_c, battery_d, (i_mains*10), I_wind, I_solar);			//Update values
-
-
-		test = (double)counter;
-		printNumber(&test, dataToStrBuff, sprintfBuff, 4,1);
-
-
-		if( (counter%2==0) & !updated)
-		{
-			//UPDATING PER 1/2 SECOND
-
-
-			updated=1;
-		}
-		else if(counter%2!=0)
-		{
-			//PREVENTING TO BE UPDATED SO MANY TIMES IN 1/2 A SECOND.
-			updated=0;
-		}
-*/
-		//
 	}
 
 	return 0;
@@ -260,7 +317,7 @@ void init_usr_intfc()
 	update_table(9,0, "BB_V");
 	update_table(10,0, "BB_C");
 
-	update_table(4,4, "J");
+	//update_table(4,4, "J");
 	update_table(5,4, "%");
 	update_table(6,4, "A");
 	update_table(7,4, "A");
@@ -273,7 +330,7 @@ void init_adc()
 {
 	/* Initializing ADC Pins */
 	DDRA &= ~( _BV(BBVOLTAGE) | _BV(BBCURRENT) | _BV(WTCURRENT) | _BV(PVCURRENT) ); //Setting 4 pins on port A as inputs
-	ADCSRA |= _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1); 								  //ADC enable. Pre-scaler f_cpu/64, not free running.
+	ADCSRA |= _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1); 								    //ADC enable. Pre-scaler f_cpu/64, not free running.
 }
 
 void init_global_timer()
@@ -281,8 +338,8 @@ void init_global_timer()
   /* Timer for global timer, working at 1ms interval*/
   TCCR1A |= 0;
   TCCR1B |= _BV(WGM12); //ctc mode.
-  TCCR1B |= _BV(CS11); //setting prescaler to 8.
-  OCR1A = 1499; //Max value to count every 1ms.
+  TCCR1B |= _BV(CS11); 	//setting prescaler to 8.
+  OCR1A = 1499; 		//Max value to count every 1ms.
 
   //enable interrupt
   TIMSK1 |= _BV(OCIE1A); //enable its interrupt.
@@ -320,8 +377,8 @@ void init_loads_pwm()
   set_digital(SLOAD1, 0);
   set_digital(SLOAD2, 0);
   set_digital(SLOAD3, 0);
-  set_digital(CBATT, 0);
-  set_digital(DBATT, 0);
+  set_digital(CBATT,  0);
+  set_digital(DBATT,  0);
   set_pwm_vout(0);
 }
 
@@ -360,21 +417,21 @@ double get_time()
 
 double get_v_amp() //NOTE: Amplitude value
 {
-  uint16_t bb_q_sample = 0; 	//reset value of bb var(s) every starting point.
-  uint16_t bb_q_amp = 0;
+  uint16_t bb_q_sample = 0; 			 //reset value of bb var(s) every starting point.
+  uint16_t bb_q_amp    = 0;
   uint32_t peak_end_time = counter + 10; //get how long does it need to wait to get the amplitude
 
   while(counter < peak_end_time)
   {
-    //sampling bb volt or current
-    bb_q_sample = abs(read_adc(BBVOLTAGE)-511); //Mid point (1024/2)-1=511
+	//sampling bb volt or current
+	bb_q_sample = abs(read_adc(BBVOLTAGE)-511); //Mid point (1024/2) - 1 = 511, finds absolute value
 
-    //finding peak
-    if(bb_q_sample > bb_q_amp)
-    {
-      //if sample is more than prev sampled value replace it.
-      bb_q_amp=bb_q_amp;
-    }
+	//finding peak
+	if(bb_q_sample > bb_q_amp)
+		{
+		  //if sample is more than prev sampled value replace it.
+		  bb_q_amp = bb_q_amp;
+		}
   }
 
   //return value
@@ -383,21 +440,21 @@ double get_v_amp() //NOTE: Amplitude value
 
 double get_c_amp() //NOTE: RMS VALUE
 {
-  uint16_t bb_q_sample = 0; 	//reset value of bb var(s) every starting point.
-  uint16_t bb_q_amp = 0;
+  uint16_t bb_q_sample = 0; 			 //reset value of bb var(s) every starting point.
+  uint16_t bb_q_amp    = 0;
   uint32_t peak_end_time = counter + 10; //get how long does it need to wait to get the amplitude
 
   while(counter < peak_end_time)
   {
     //sampling bb volt or current
-    bb_q_sample = abs(read_adc(BBCURRENT)-511); //Mid point (1024/2)-1=511
+    bb_q_sample = abs(read_adc(BBCURRENT)-511); //Mid point (1024/2) - 1 = 511
 
     //finding peak
     if(bb_q_sample > bb_q_amp)
-    {
-      //if sample is more than prev sampled value replace it.
-      bb_q_amp=bb_q_amp;
-    }
+		{
+		  //if sample is more than prev sampled value replace it.
+		  bb_q_amp = bb_q_amp;
+		}
   }
 
   //return value
@@ -468,15 +525,21 @@ void printNumber(double* value, char* dataToStrBuff, char* sprintfBuff, uint8_t 
 	update_table(row, col, sprintfBuff);
 }
 
-void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains, double I_wind, double I_solar)
-{
+void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double I_mains, double I_wind, double I_solar, double battery_capacity)
+{	
+	printNumber(&battery_capacity, dataToStrBuff, sprintfBuff, 4,2);//Update battery capacity value
+	
+	uint8_t I_mains_percentage;
+	I_mains_percentage = (I_mains/3) * 100;
+	printNumber(&I_mains_percentage, dataToStrBuff, sprintfBuff, 5,2);//Update mains percenatge current value
+	
+	printNumber(&I_mains, dataToStrBuff, sprintfBuff, 6,2);			//Update mains current value
+	
+	printNumber(&I_wind, dataToStrBuff, sprintfBuff, 7,2);			//Update wind current value
+	printNumber(&I_solar, dataToStrBuff, sprintfBuff, 8,2);			//Update solar current value
+	
 	printNumber(&bb_v, dataToStrBuff, sprintfBuff, 9,2);			//Update voltage value
 	printNumber(&bb_c, dataToStrBuff, sprintfBuff, 10,2);			//Update current value
-
-	printNumber(&i_mains, dataToStrBuff, sprintfBuff, 5,2);			//Update mains current value
-
-	printNumber(&I_wind, dataToStrBuff, sprintfBuff, 7,2);
-	printNumber(&I_solar, dataToStrBuff, sprintfBuff, 8,2);
 	
 	(load1_r) ? update_table(0,1, "Yes") : update_table(0,1, "No ");	//Update load 1 request
 	(load2_r) ? update_table(1,1, "Yes") : update_table(1,1, "No ");	//Update load 2 request
