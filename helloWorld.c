@@ -434,7 +434,7 @@ void battery_control(uint8_t charge_control, uint8_t discharge_control)
 				}
 		}
 		
-	if (discharge_control == 0)
+	if (discharge_control == 1)
 		{
 			if (battery_d == 1)
 				{
