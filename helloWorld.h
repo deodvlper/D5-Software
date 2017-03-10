@@ -52,7 +52,7 @@ void init_global_timer();  		//added to replace the global timer.
 void init_pwm();				//Sets up the registers, for the voltage output pin
 void init_digital();			//Sets up the digital inputs on port A, outputs on port D
 void init_loads_pwm();			//Sets load switches and PWM output to zero
-void set_pwm_vout(double vin);
+void set_pwm_vout(double current);
 uint8_t get_digital(uint8_t pin);
 void set_digital(uint8_t pin, uint8_t val);
 double get_time();
@@ -66,4 +66,5 @@ void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, u
 void printNumber(double* value, char* dataToStrBuff, char*sprintfBuff, uint8_t row, uint8_t col);
 void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains, double I_wind, double I_solar, double battery_capacity);		//Created function, updates the values
 void battery_control(uint8_t charge_control, uint8_t discharge_control);
+void set_loads(uint8_t* load1_r, uint8_t* load2_r, uint8_t* load3_r, uint8_t* load1_s, uint8_t* load2_s, uint8_t* load3_s);
 
