@@ -380,6 +380,8 @@ void battery_start(uint8_t mode, uint32_t* start_time)
     set_digital(CBATT,0); //stop charging
     set_digital(DBATT,1); //start discharging
   }
+
+  *start_time = counter;
 }
 
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy)
