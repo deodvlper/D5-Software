@@ -355,12 +355,30 @@ void battery_stop(uint8_t mode, const uint32_t* start_time, uint32_t* total_time
   //end charging
   if(mode)
   {
-      *total_time += (counter-*start_time); //add the delta time.
+    *total_time += (counter-*start_time); //add the delta time.
+    set_digital(CBATT,0); //stop charging
   }
   //end discharging
   else
   {
     *total_time -= (counter-*start_time); //minus the delta time after discharging.
+    set_digital(DBATT,0);//stop discharging
+  }
+}
+
+void battery_start(uint8_t mode, uint32_t* start_time)
+{
+  //start charging
+  if(mode)
+  {
+    set_digital(CBATT,1); //start charging
+    set_digital(DBATT,0); //stop discharging
+  }
+  //start discharging
+  else
+  {
+    set_digital(CBATT,0); //stop charging
+    set_digital(DBATT,1); //start discharging
   }
 }
 
