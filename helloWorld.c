@@ -1,27 +1,13 @@
-/* TO DO:
- * 	Testing the averaging code after changing from = to += of line 299
- * 	Testing the total energy function. Does it work properly.
- * 	Add control for the first profile.
- */
-
  //ASSUMING EVERYTHING IS IN AC RMS CURRENT
- 
+ //CHECK VOLTAGE.
+
 #include "helloWorld.h"
 
 //GLOBAL VARIABLES
-volatile uint8_t counter = 0; 		//used double for testing. Change to uint16_t when no need display. --> 20/2/17 changed to uint16_t
-									//counter is the real time in seconds
-volatile uint8_t temp = 0;			//used in the interrupt as a temporary variable for the 'counter' variable
-volatile uint16_t bb_volt_data = 0; //bus bar voltage
-volatile uint16_t bb_curr_data = 0; //bus bar current
-volatile uint16_t wt_curr_data = 0; //wind turbine current
-volatile uint16_t pv_curr_data = 0;	//solar panel current
-volatile uint16_t new_data = 0; 	//checking if it's a new data
-
-volatile char dataToStrBuff[20];    //data (double) -> string buffer (array of chars), used in dtostrf	
+volatile uint32_t counter = 0;  //32 bits counter handling 1ms interval
+volatile char dataToStrBuff[20];    //data (double) -> string buffer (array of chars), used in dtostrf
 volatile char sprintfBuff[20];      //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
 								    //this is what is displayed on the LCD
-
 
 volatile uint8_t battery_c 			 = 0; 			//'_c' = charge, '_d' = discharge
 volatile double charge_start_time    = 0;
@@ -33,22 +19,11 @@ volatile double discharge_end_time   = 0;
 
 volatile uint8_t battery_capacity	 = 0;
 			
-
-ISR(TIMER0_COMPA_vect)
+//INTERRUPT SERIVE ROUTINE (ISR)
+ISR(TIMER1_COMPA_vect)
 {
-	/* Reading ADC when compare match  */
-	bb_volt_data = read_adc(BBVOLTAGE);
-	bb_curr_data = read_adc(BBCURRENT);
-	wt_curr_data = read_adc(WTCURRENT);
-	pv_curr_data = read_adc(PVCURRENT);
-	new_data=1;
-	
-	temp += 1;
-	if (temp == 125)		//when temp reaches 20% of the count (0.2s)
-		{
-			counter +=1;	//global clock increments every 0.2s
-			temp = 0;
-		}
+  /* Adding global counter */
+  counter+=1;
 }
 
 int main()
@@ -83,19 +58,24 @@ int main()
 	uint8_t load3_s = 0;
 	
 	double i_mains = 0;
-	
+
+
+  uint8_t lcd_count = 0;		//acts as a boolean variable, used for updating LCD
+
+
+  double i_total_need = 0;
+  double i_renew_total = 0;
+
 	//INITIALIZATION
-	init_adc();					//Created function, enables ADC pins 
-	init_adc_timer();			//Created function, sets up 
+  init_lcd();				//Premade function, configures the ports
+  set_orientation(North);	//Premade funtion, Sets in portrait mode
+  init_usr_intfc();		//Created function, draws the main theme, sets up table
+
+	init_adc();					//Created function, enables ADC pins
+	init_global_timer();
 	init_pwm();					//sets up the registers, for the voltage output pin
 	init_digital();				//sets up the digital inputs on port A, outputs on port D
- 						
-	set_digital(SLOAD1, 0);		//Sets all loads to intiially 0
-	set_digital(SLOAD2, 0);
-	set_digital(SLOAD3, 0);	
-	set_digital(CBATT,  0);
-	set_digital(DBATT,  0);
-	set_pwm_vout(0);
+ 					
 	
 	//LOCAL VARIABLES
 	double voltage = 0;
@@ -109,24 +89,15 @@ int main()
 
 	sei();					//enable interrupt
 	
+  init_loads_pwm(); //all outputs to zero.
+
+
+  //TESTING VARIABLE
+  double test;
+
 	while(1)
 	{
-		if(new_data)
-			{
-				//TAKE DATA IN.
-				cli();						//disable global interrupt -- prevent unatomic operation
-				bb_v_sample = bb_volt_data;
-				bb_c_sample = bb_curr_data;
-				wt_c_sample = wt_curr_data;
-				pv_c_sample = pv_curr_data;
-				new_data = 0;
-				sei();						//enable global interrupt
 
-				//INTEGRATING AND AVERAGING
-				//update_energy(&bb_v_sample, &bb_c_sample, &sample, &total_energy);
-				//update_avg(&total_energy, &sample, &avg_power);
-			}
-		
 		/* 1) FUNCTION 1 Check load calls, turn off unwanted loads, calculate required current, store in variable */
 		
 		load1_r = (get_digital(CLOAD1)) ? 1 : 0;	//store load call in local variable
@@ -172,19 +143,31 @@ int main()
 						battery_control(0,1);	//stops discharging if it is discharging
 					}
 			}
-		
-		
-		
+
+
 		/* 4) CONNECT UP LOADS, CONTROL BLOCK */
-		
-		
+		//PEAK FINDER
+
+		/* 5) DISPLAYING ON THE LCD */
+		//Displaying per second
+		lcd_count++;
+
+		if(lcd_count==5) //vary this to change screen update speed.
+		{
+			test = get_v_amp();
+			printNumber(&test, dataToStrBuff, sprintfBuff, 10,1);
+      test = get_c_amp();
+      printNumber(&test, dataToStrBuff, sprintfBuff, 11,1);
+			lcd_count=0; //reset count for updating the screen.
+		}
+
 		/*
 		//DECISION SATEMENT FOR THE FIRST ONE
 		//taking in the load request values
 		load1_r = (get_digital(CLOAD1)) ? 1 : 0;
 		load2_r = (get_digital(CLOAD2)) ? 1 : 0;
 		load3_r = (get_digital(CLOAD3)) ? 1 : 0;
-		
+
 		battery_c = ((load1_r*I1+load2_r*I2+load3_r*I3) <= 3) ? 1 : 0;
 
 		set_digital(SLOAD1,load1_s);
@@ -197,6 +180,7 @@ int main()
 		//Finding voltage and current
 		voltage = (double)((bb_v_sample/1023.0)*6.6-3.3);
 		current = (double)((bb_c_sample/1023.0)*6.6-3.3);
+
 		I_wind = (double)((wt_c_sample/1023.0)*5);
 		I_solar = (double)((pv_c_sample/1023.0)*5);
 		
@@ -207,7 +191,7 @@ int main()
 		test = (double)counter;
 		printNumber(&test, dataToStrBuff, sprintfBuff, 4,1);
 
-		
+
 		if( (counter%2==0) & !updated)
 		{
 			//UPDATING PER 1/2 SECOND
@@ -227,7 +211,7 @@ int main()
 	return 0;
 }
 
-void init_usr_intfc()	
+void init_usr_intfc()
 {
 	/*draws the main theme, sets up table*/
     //Clears screen, makes black, ready for data
@@ -257,16 +241,16 @@ void init_usr_intfc()
 
 	//Setting up tabling grid starting point
 	init_table(inner_rect.left, inner_rect.top);
-	
+
 	//Writes the text
 	update_table(0,0, "C1:");
 	update_table(1,0, "C2:");
 	update_table(2,0, "C3:");
-	
+
 	update_table(0,2, "S1:");
 	update_table(1,2, "S2:");
 	update_table(2,2, "S3:");
-	
+
 	update_table(3,0, "B_Status:");
 	update_table(4,0, "B_Level:");
 	update_table(5,0, "%_Mains:");
@@ -275,7 +259,7 @@ void init_usr_intfc()
 	update_table(8,0, "I_Solar:");
 	update_table(9,0, "BB_V");
 	update_table(10,0, "BB_C");
-	
+
 	update_table(4,4, "J");
 	update_table(5,4, "%");
 	update_table(6,4, "A");
@@ -285,23 +269,26 @@ void init_usr_intfc()
 	update_table(10,4, "A");
 }
 
-void init_adc()			 
+void init_adc()
 {
 	/* Initializing ADC Pins */
 	DDRA &= ~( _BV(BBVOLTAGE) | _BV(BBCURRENT) | _BV(WTCURRENT) | _BV(PVCURRENT) ); //Setting 4 pins on port A as inputs
 	ADCSRA |= _BV(ADEN) | _BV(ADPS2) | _BV(ADPS1); 								  //ADC enable. Pre-scaler f_cpu/64, not free running.
 }
 
-void init_adc_timer()
+void init_global_timer()
 {
-	/* Timer for ADC sampling at 625 Hz*/
-	TCCR0A |= _BV(WGM01); 			//CTC MODE
-	TCCR0B |= _BV(CS02); 			//256 PRESCALER
-	OCR0A = 74; 					//COMPARE VALUE
-	TIMSK0 |= _BV(OCIE0A); 			//ENABLING INTERRUPT COMAPRE A
+  /* Timer for global timer, working at 1ms interval*/
+  TCCR1A |= 0;
+  TCCR1B |= _BV(WGM12); //ctc mode.
+  TCCR1B |= _BV(CS11); //setting prescaler to 8.
+  OCR1A = 1499; //Max value to count every 1ms.
+
+  //enable interrupt
+  TIMSK1 |= _BV(OCIE1A); //enable its interrupt.
 }
 
-void init_pwm()				
+void init_pwm()
 {
 	/*Sets up the PWM timer 2 registers (8-bit timer), for the voltage output pin*/
 	//Plan: Use Fast PWM, non-inverting mode. Higher compare register -> higher duty cycle
@@ -318,7 +305,7 @@ void init_pwm()
 	OCR2A = 0;
 }
 
-void init_digital()			
+void init_digital()
 {
 	/*sets up the digital inputs on port A, outputs on port D*/
 	DDRIN &= ~(_BV(CLOAD1) | _BV(CLOAD2) | _BV(CLOAD3)); 						 //setting inputs
@@ -327,12 +314,23 @@ void init_digital()
 	PINOUT = 0; 																 //initially all output==0;
 }
 
+void init_loads_pwm()
+{
+  /* Initialising the load and pwm out */
+  set_digital(SLOAD1, 0);
+  set_digital(SLOAD2, 0);
+  set_digital(SLOAD3, 0);
+  set_digital(CBATT, 0);
+  set_digital(DBATT, 0);
+  set_pwm_vout(0);
+}
+
 void set_pwm_vout(double vin)
 {
 	/*Convert 0->10v (amplified out) to 0->255 */
 	OCR2A = (int)(((vin/10.0)*255)+0.5); //added 0.5, for x.y when 0<=y<=4 round down, 0<5 = round up.
 										 //converting to int truncates the decimal, +0.5 acts as rounding
-										 //sets the compare value as the voltage required 
+										 //sets the compare value as the voltage required
 }
 
 uint8_t get_digital(uint8_t pin)
@@ -360,6 +358,52 @@ double get_time()
 	return (counter/5);
 }
 
+double get_v_amp() //NOTE: Amplitude value
+{
+  uint16_t bb_q_sample = 0; 	//reset value of bb var(s) every starting point.
+  uint16_t bb_q_amp = 0;
+  uint32_t peak_end_time = counter + 10; //get how long does it need to wait to get the amplitude
+
+  while(counter < peak_end_time)
+  {
+    //sampling bb volt or current
+    bb_q_sample = abs(read_adc(BBVOLTAGE)-511); //Mid point (1024/2)-1=511
+
+    //finding peak
+    if(bb_q_sample > bb_q_amp)
+    {
+      //if sample is more than prev sampled value replace it.
+      bb_q_amp=bb_q_amp;
+    }
+  }
+
+  //return value
+  return (bb_q_amp/512.0)*400; //because max input at 400V.
+}
+
+double get_c_amp() //NOTE: RMS VALUE
+{
+  uint16_t bb_q_sample = 0; 	//reset value of bb var(s) every starting point.
+  uint16_t bb_q_amp = 0;
+  uint32_t peak_end_time = counter + 10; //get how long does it need to wait to get the amplitude
+
+  while(counter < peak_end_time)
+  {
+    //sampling bb volt or current
+    bb_q_sample = abs(read_adc(BBCURRENT)-511); //Mid point (1024/2)-1=511
+
+    //finding peak
+    if(bb_q_sample > bb_q_amp)
+    {
+      //if sample is more than prev sampled value replace it.
+      bb_q_amp=bb_q_amp;
+    }
+  }
+
+  //return value
+  return (bb_q_amp/512.0)*10/sqrt(2); //because max 10v~10A amplitude rms value
+}
+
 uint16_t read_adc(uint8_t channelNum)
 {
 	/* Function to read ADC Values */
@@ -367,6 +411,38 @@ uint16_t read_adc(uint8_t channelNum)
 	ADCSRA |= _BV(ADSC); 			//start conversion
 	while(ADCSRA & _BV(ADSC)){}; 	//wait until the ADC conversion is done.
 	return ADC; 					//return the ADC data after ready.
+}
+
+void battery_stop(uint8_t mode, const uint32_t* start_time, uint32_t* total_time)
+{
+  //end charging
+  if(mode)
+  {
+    *total_time += (counter-*start_time); //add the delta time.
+    set_digital(CBATT,0); //stop charging
+  }
+  //end discharging
+  else
+  {
+    *total_time -= (counter-*start_time); //minus the delta time after discharging.
+    set_digital(DBATT,0);//stop discharging
+  }
+}
+
+void battery_start(uint8_t mode, uint32_t* start_time)
+{
+  //start charging
+  if(mode)
+  {
+    set_digital(CBATT,1); //start charging
+    set_digital(DBATT,0); //stop discharging
+  }
+  //start discharging
+  else
+  {
+    set_digital(CBATT,0); //stop charging
+    set_digital(DBATT,1); //start discharging
+  }
 }
 
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy)
@@ -379,7 +455,7 @@ void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, u
 
 void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power)
 {
-	/* UPDATE AVG REV 2*/ 
+	/* UPDATE AVG REV 2*/
 	//NOW GET AVERAGE FROM TOTAL VALUE.
 	*avg_power = *total_energy / (*sample * 0.0016); //divide by the total time
 }
@@ -396,24 +472,25 @@ void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, u
 {
 	printNumber(&bb_v, dataToStrBuff, sprintfBuff, 9,2);			//Update voltage value
 	printNumber(&bb_c, dataToStrBuff, sprintfBuff, 10,2);			//Update current value
-	
+
 	printNumber(&i_mains, dataToStrBuff, sprintfBuff, 5,2);			//Update mains current value
+
 	printNumber(&I_wind, dataToStrBuff, sprintfBuff, 7,2);
 	printNumber(&I_solar, dataToStrBuff, sprintfBuff, 8,2);
 	
 	(load1_r) ? update_table(0,1, "Yes") : update_table(0,1, "No ");	//Update load 1 request
 	(load2_r) ? update_table(1,1, "Yes") : update_table(1,1, "No ");	//Update load 2 request
 	(load3_r) ? update_table(2,1, "Yes") : update_table(2,1, "No ");	//Update load 3 request
-	
+
 	(load1_s) ? update_table(0,3, "Yes") : update_table(0,3, "No ");	//Update load 1 request
 	(load2_s) ? update_table(1,3, "Yes") : update_table(1,3, "No ");	//Update load 2 request
 	(load3_s) ? update_table(2,3, "Yes") : update_table(2,3, "No ");	//Update load 3 request
-	
+
 	if ((battery_c == 0) && (battery_d == 0))
 		update_table(3,2, " Idle");
 	else if (battery_c == 1)
 		update_table(3,2, " Charge");
-	else 
+	else
 		update_table(3,2, " Discharge");
 }
 

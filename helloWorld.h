@@ -4,6 +4,7 @@
 #include <avr/delay.h> 			//added for sleep.
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
 #include "lcd.h"
 #define F_CPU 12000000UL 		//added to change CPU speed to 12MHz UL=unsigned long.
 
@@ -39,20 +40,30 @@
 #define I1 0.8
 #define I2 1.8
 #define I3 1.4
-		
+
+//DEFINITION CHARGE/DISCHARGE BATTERY
+#define CHARGING 1
+#define DISCHARGING 0
+
 //FUNCTION LIST
 void init_usr_intfc();			//Created function, draws the main theme, sets up table
-void init_adc();				//Created function, enables ADC pins 
-void init_adc_timer();
-void init_pwm();				//Sets up the registers, for the voltage output pin 
+void init_adc();				//Created function, enables ADC pins
+void init_global_timer();  //added to replace the global timer.
+void init_pwm();				//Sets up the registers, for the voltage output pin
 void init_digital();			//Sets up the digital inputs on port A, outputs on port D
+void init_loads_pwm();
 void set_pwm_vout(double vin);
 uint8_t get_digital(uint8_t pin);
 void set_digital(uint8_t pin, uint8_t val);
 double get_time();
+double get_v_amp(); //Note: Might mix both sampling to save time if needed.
+double get_c_amp();
 uint16_t read_adc(uint8_t channelNum);
+void battery_stop(uint8_t mode, const uint32_t* start_time, uint32_t* total_time);
+void battery_start(uint8_t mode, uint32_t* start_time);
 void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power);
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy);
 void printNumber(double* value, char* dataToStrBuff, char*sprintfBuff, uint8_t row, uint8_t col);
 void update_values(double bb_v, double bb_c, uint8_t load1_r, uint8_t load2_r, uint8_t load3_r, uint8_t load1_s, uint8_t load2_s, uint8_t load3_s, uint8_t battery_c, uint8_t battery_d, double i_mains, double I_wind, double I_solar);		//Created function, updates the values
 void battery_control(uint8_t charge_control, uint8_t discharge_control);
+
