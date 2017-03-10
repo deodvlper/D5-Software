@@ -34,6 +34,9 @@ int main()
 
   uint8_t battery_c = 0; 		//'_c' = charge, '_d' = discharge
   uint8_t battery_d = 0;
+  uint32_t start_time = 0;
+  uint32_t end_time = 0;
+  uint32_t total_time = 0;
 
   double i_total_need = 0;
   double i_renew_total = 0;
@@ -76,7 +79,21 @@ int main()
 		/* 3) DECISION MAKING BLOCKS */
     if(i_renew_total>i_total_need)
     {
+      if(battery_d==1)
+      {
+        battery_stop(DISCHARGING, &start_time, &total_time, &battery_c, &battery_d);
+      }
 
+      if( (i_renew_total-i_total_need) >= 1)
+      {
+        if(battery_c==0)
+        {
+          battery_start(CHARGING,&start_time, &battery_c, &battery_d);
+        }
+        set_digital(SLOAD1,load1_r);
+        set_digital(SLOAD2,load2_r);
+        set_digital(SLOAD3,load3_r);
+      }
     }
     else if(i_renew_total<i_total_need)
     {
@@ -350,41 +367,41 @@ uint16_t read_adc(uint8_t channelNum)
 	return ADC; 					//return the ADC data after ready.
 }
 
-void battery_stop(uint8_t mode, const uint32_t* start_time, uint32_t* total_time)
+void battery_stop(uint8_t mode, const uint32_t* start_time, uint32_t* total_time, uint8_t* battery_c, uint8_t* battery_d )
 {
   //end charging
   if(mode)
   {
     *total_time += (counter-*start_time); //add the delta time.
     set_digital(CBATT,0); //stop charging
-    battery_c=0; //indicating stop charging
+    *battery_c=0; //indicating stop charging
   }
   //end discharging
   else
   {
     *total_time -= (counter-*start_time); //minus the delta time after discharging.
     set_digital(DBATT,0);//stop discharging
-    battery_d=0; //indicating stop discharging
+    *battery_d=0; //indicating stop discharging
   }
 }
 
-void battery_start(uint8_t mode, uint32_t* start_time)
+void battery_start(uint8_t mode, uint32_t* start_time, uint8_t* battery_c, uint8_t* battery_d)
 {
   //start charging
   if(mode)
   {
     set_digital(CBATT,1); //start charging
     set_digital(DBATT,0); //stop discharging
-    battery_c=1;
-    battery_d=0;
+    *battery_c=1;
+    *battery_d=0;
   }
   //start discharging
   else
   {
     set_digital(CBATT,0); //stop charging
     set_digital(DBATT,1); //start discharging
-    battery_c=0;
-    battery_d=1;
+    *battery_c=0;
+    *battery_d=1;
   }
 
   *start_time = counter;
