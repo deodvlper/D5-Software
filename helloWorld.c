@@ -490,13 +490,15 @@ uint8_t get_digital(uint8_t pin)
 void set_digital(uint8_t pin, uint8_t val)
 {
 	/* Giving digital output -- opposite of the normal logic because this is the control signal for transistor */
+	/* CHANGED IT BACK, FLIPPED LINES 496 AND 501 AS NOT USING MOSFETS ANYMORE*/
 	if (val)
 	{
-		PORTOUT &= ~_BV(pin);
+		PORTOUT |= _BV(pin);
 	}
 	else
 	{
-		PORTOUT |= _BV(pin);
+
+		PORTOUT &= ~_BV(pin);
 	}
 }
 
