@@ -70,7 +70,12 @@ int main()
 	double I_required  = 0;	//the total current required from the loads
 	double I_renewable = 0;	//the total current coming from wind and solar
 	
-	uint8_t  control = 0;			//used in the while loop at the beginning, checking for changes
+	/* TEST - MADE CONTROL = 1 TO TEST WHILE LOOP */
+	
+	uint8_t  control = 1;			//used in the while loop at the beginning, checking for changes
+
+	/* TEST - MADE CONTROL = 1 TO TEST WHILE LOOP */	
+	
 	uint32_t battery_drain = 0;		//used in the while loop at the beginning, checks usage
 	uint8_t  load_off = 0;			//used in the while loop at the beginning, remembers what load we turned off
 	double   renewable_check = 0;	//used in the while loop at the beginning, stores the value to save calculating twice
@@ -89,11 +94,14 @@ int main()
 	
 	init_loads_pwm(); 			//sets load switches and PWM output to zero
 
+	
+/*
+	
 	while (1)
 	{
 		while (control == 1)
-			{
-				update_table(12,1, " While 1     ");	
+			{	
+				update_table(12,1, " While       ");	
 				//temp = (double)counter;
 				//printNumber(&temp, dataToStrBuff, sprintfBuff, 11,2);				//Update time
 				
@@ -147,22 +155,28 @@ int main()
 					}
 				//check when if mains is down, detect if it is back up, change mains_status and control = 0
 				
-				update_table(12,1, " Before LCD  ");
+				//update_table(12,1, " Before LCD  ");
 				//displaying per second
 				if(counter > (lcd_count * 1000)) //vary this to change screen update speed.
 					{
 						voltage = get_v_amp();		
 						current = get_c_amp();
-						update_table(12,1, " LCD update 1");
+						//update_table(12,1, " LCD update 1");
 						update_values(&voltage, &current, &load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s, &battery_c, &battery_d, &I_mains, &I_wind, &I_solar);			//Update values
 						lcd_count += 1; //count for updating the screen.
-						update_table(12,1, " LCD update 2");	
+						//update_table(12,1, " LCD update 2");	
 					}
 			}
-		
+
+*/
+/*
+			
+		update_table(12,1, " Out of loop  ");	
+
+*/
 		
 		/* 1) TASK 1 Check load calls, turn off unwanted loads, calculate required current, store in variable I_required */
-		
+/*		
 		load1_r = (get_digital(CLOAD1)) ? 1 : 0;	//store load call in local request variable
 		load2_r = (get_digital(CLOAD2)) ? 1 : 0;	//store load call in local request variable	
 		load3_r = (get_digital(CLOAD3)) ? 1 : 0;	//store load call in local request variable
@@ -170,7 +184,7 @@ int main()
 		I_required = (load1_r * I1) + (load2_r * I2) + (load3_r * I3);		//finding required current 
 		
 		/* 2) TASK 2 Use ADC single read of WT and PV to find current from renewables, store in variable */
-		
+/*		
 		I_wind  = read_adc(WTCURRENT);	//obtain ADC value from 0 to 1023
 		I_wind  = (I_wind/1023.0) * 5;	//turns ADC value into the respective current
 		
@@ -181,7 +195,7 @@ int main()
 		
 		printNumber(&I_renewable, dataToStrBuff, sprintfBuff, 13,2);	
 		printNumber(&I_required, dataToStrBuff, sprintfBuff, 14,2);	
-		
+*/		
 		/* 3) DECISION MAKING BLOCKS */
 		
 		/* Enough current from renewables?*/
@@ -205,8 +219,8 @@ int main()
 			}
 		else if(i_renew_total<i_total_need)
 			{
-*/
-		
+		*/
+/*		
 		if ((I_required == 0) && (I_renewable == 0))			//goes in here at startup
 			{
 				set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
@@ -215,8 +229,8 @@ int main()
 		
 		else if (I_renewable > I_required)
 			{	
-				/* Yes */
-				I_mains = 0;					//set mains output to 0A
+*/				/* Yes */
+/*				I_mains = 0;					//set mains output to 0A
 				set_pwm_vout(I_mains);
 				
 				if (battery_d == 1)				//checks if currently discharging
@@ -226,9 +240,9 @@ int main()
 												//charge_control = 0
 												//discharge_control = 1
 					}
-					
+*/					
 				/* 1A surplus current from renewables */
-				if ((I_renewable - I_required) > 1)	//checks if there is a 1A surplus (enough to charge battery)
+/*				if ((I_renewable - I_required) > 1)	//checks if there is a 1A surplus (enough to charge battery)
 					{
 						if (battery_c == 1)			//checks if battery is already charging
 							{
@@ -241,10 +255,10 @@ int main()
 								set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
 							}
 					}
-				
+*/				
 				/* <1A surplus current from renewables */
 				/* Battery capacity check */
-				else if (battery_capacity > 480000)		//480000ms = 8 minutes
+/*				else if (battery_capacity > 480000)		//480000ms = 8 minutes
 					{
 						if (battery_c == 1)					//if battery is already charging
 							{
@@ -252,9 +266,9 @@ int main()
 								battery_control(1,0);		//stop charging
 							}
 						set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
-					}
-				else /* Battery capacity is low, can charge*/
-					{
+*///					}
+//				else /* Battery capacity is low, can charge*/
+/*					{
 						if (battery_c == 1)					//if battery is already charging
 							{
 								set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
@@ -270,13 +284,13 @@ int main()
 							}
 					}
 			}
-	
+*/	
 		/* When renewables is not enough to supply load*/
-		else
+/*		else
 			{
 				if ((I_required - I_renewable) < 1)		//if the current left to supply is less than 1A
-					/* Yes, use mains to supply deficit */
-					{
+*/					/* Yes, use mains to supply deficit */
+/*					{
 						if (battery_d == 1)				
 							{
 								battery_d = 0;
@@ -302,12 +316,12 @@ int main()
 								controller(1, &I_mains, &mains_status, &load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s, &I_renewable, &control);
 							}
 					}
-				else
+//				else
 					/* No, use mains and possible battery to supply deficit*/ 
-					{
+/*					{
 						if (battery_capacity > 180000)		//180000 ms = 3 minutes (3 mins is used so we have spare in case power goes down)
 						/* if there is capacity, then discharge the battery */
-							{
+/*							{
 								if (battery_c == 1)
 									{
 										battery_c = 0;			//stop charging
@@ -318,21 +332,21 @@ int main()
 										battery_d = 1;
 										battery_control(0,1);	//start discharging 
 									}
-								I_mains = I_required - I_renewable - 1;		//mains is fulfilling the remaining load current deficit
+								I_mains = I_required - I_renewable;		//mains is fulfilling the load current deficit
 								set_pwm_vout(I_mains);
 								set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
 								controller(2, &I_mains, &mains_status, &load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s, &I_renewable, &control);
 							}
 						else
 						/* Not enough capacity in battery, so use mains to supply deficit*/
-							{
+/*							{
 								if (battery_d == 1)
 									{
 										battery_d = 0;
 										battery_control(0,1);		//stop discharging
 									}
 								I_mains = I_required - I_renewable;	//mains is fulfilling the load current deficit
-								if (((I_mains + 1.2) < 3) && (battery_capacity < 180000))		//if there is enough mains capacity left to charge battery
+								if ((I_mains + 1.2) < 180000)		//if there is enough mains capacity left to charge battery
 									{
 										I_mains += 1;				//mains will also charge battery
 										battery_c = 1;
@@ -349,8 +363,11 @@ int main()
 							}
 					}
 			}
-	}
+		
 
+	
+	}
+*/
 	return 0;
 }
 
@@ -414,7 +431,7 @@ void init_usr_intfc()
 	update_table( 8,4, "A");
 	update_table( 9,4, "V");
 	update_table(10,4, "A");
-	update_table(11,5, "ms");
+	update_table(11,4, "s");
 }
 
 void init_adc()
@@ -645,7 +662,7 @@ void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_
 	printNumber(bb_c, dataToStrBuff, sprintfBuff, 10,2);				//Update current value
 	
 	double temp = 0;
-	temp = (double)counter;
+	temp = ((double)counter)/1000.0;
 	printNumber(&temp, dataToStrBuff, sprintfBuff, 11,2);				//Update time
 	
 	(*load1_r) ? update_table(0,1, "Yes") : update_table(0,1, "No ");	//Update load 1 request
