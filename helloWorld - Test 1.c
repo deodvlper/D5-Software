@@ -27,7 +27,12 @@ ISR(TIMER1_COMPA_vect)
 }
 
 int main()
-{	
+{
+	//LCD INITIALIZATION
+	init_lcd();				//premade function, configures the ports
+	set_orientation(North);	//premade funtion, Sets in portrait mode
+	init_usr_intfc();		//created function, draws the main theme, sets up table
+	
 	//VARIABLES
 	//char dataToStrBuff[20]; //data (double) -> string buffer (array of chars), used in dtostrf
 	//char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
@@ -70,7 +75,12 @@ int main()
 	double I_required  = 0;	//the total current required from the loads
 	double I_renewable = 0;	//the total current coming from wind and solar
 	
-	uint8_t  control = 0;			//used in the while loop at the beginning, checking for changes
+	/* TEST - MADE CONTROL = 1 TO TEST WHILE LOOP */
+	
+	uint8_t  control = 1;			//used in the while loop at the beginning, checking for changes
+
+	/* TEST - MADE CONTROL = 1 TO TEST WHILE LOOP */	
+	
 	uint32_t battery_drain = 0;		//used in the while loop at the beginning, checks usage
 	uint8_t  load_off = 0;			//used in the while loop at the beginning, remembers what load we turned off
 	double   renewable_check = 0;	//used in the while loop at the beginning, stores the value to save calculating twice
@@ -92,8 +102,8 @@ int main()
 	while (1)
 	{
 		while (control == 1)
-			{
-				update_table(12,1, " While 1     ");	
+			{	
+				update_table(12,1, " While       ");	
 				//temp = (double)counter;
 				//printNumber(&temp, dataToStrBuff, sprintfBuff, 11,2);				//Update time
 				
@@ -160,6 +170,7 @@ int main()
 					}
 			}
 		
+		update_table(12,1, " Out of loop  ");	
 		
 		/* 1) TASK 1 Check load calls, turn off unwanted loads, calculate required current, store in variable I_required */
 		
@@ -318,7 +329,7 @@ int main()
 										battery_d = 1;
 										battery_control(0,1);	//start discharging 
 									}
-								I_mains = I_required - I_renewable - 1;		//mains is fulfilling the remaining load current deficit
+								I_mains = I_required - I_renewable;		//mains is fulfilling the load current deficit
 								set_pwm_vout(I_mains);
 								set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
 								controller(2, &I_mains, &mains_status, &load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s, &I_renewable, &control);
@@ -332,7 +343,7 @@ int main()
 										battery_control(0,1);		//stop discharging
 									}
 								I_mains = I_required - I_renewable;	//mains is fulfilling the load current deficit
-								if (((I_mains + 1.2) < 3) && (battery_capacity < 180000))		//if there is enough mains capacity left to charge battery
+								if ((I_mains + 1.2) < 180000)		//if there is enough mains capacity left to charge battery
 									{
 										I_mains += 1;				//mains will also charge battery
 										battery_c = 1;
@@ -490,15 +501,13 @@ uint8_t get_digital(uint8_t pin)
 void set_digital(uint8_t pin, uint8_t val)
 {
 	/* Giving digital output -- opposite of the normal logic because this is the control signal for transistor */
-	/* CHANGED IT BACK, FLIPPED LINES 496 AND 501 AS NOT USING MOSFETS ANYMORE*/
 	if (val)
 	{
-		PORTOUT |= _BV(pin);
+		PORTOUT &= ~_BV(pin);
 	}
 	else
 	{
-
-		PORTOUT &= ~_BV(pin);
+		PORTOUT |= _BV(pin);
 	}
 }
 

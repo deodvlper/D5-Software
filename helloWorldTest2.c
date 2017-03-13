@@ -27,7 +27,12 @@ ISR(TIMER1_COMPA_vect)
 }
 
 int main()
-{	
+{
+	//LCD INITIALIZATION
+	init_lcd();				//premade function, configures the ports
+	set_orientation(North);	//premade funtion, Sets in portrait mode
+	init_usr_intfc();		//created function, draws the main theme, sets up table
+	
 	//VARIABLES
 	//char dataToStrBuff[20]; //data (double) -> string buffer (array of chars), used in dtostrf
 	//char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
@@ -318,7 +323,7 @@ int main()
 										battery_d = 1;
 										battery_control(0,1);	//start discharging 
 									}
-								I_mains = I_required - I_renewable - 1;		//mains is fulfilling the remaining load current deficit
+								I_mains = I_required - I_renewable;		//mains is fulfilling the load current deficit
 								set_pwm_vout(I_mains);
 								set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
 								controller(2, &I_mains, &mains_status, &load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s, &I_renewable, &control);
@@ -332,7 +337,7 @@ int main()
 										battery_control(0,1);		//stop discharging
 									}
 								I_mains = I_required - I_renewable;	//mains is fulfilling the load current deficit
-								if (((I_mains + 1.2) < 3) && (battery_capacity < 180000))		//if there is enough mains capacity left to charge battery
+								if ((I_mains + 1.2) < 180000)		//if there is enough mains capacity left to charge battery
 									{
 										I_mains += 1;				//mains will also charge battery
 										battery_c = 1;
@@ -490,15 +495,13 @@ uint8_t get_digital(uint8_t pin)
 void set_digital(uint8_t pin, uint8_t val)
 {
 	/* Giving digital output -- opposite of the normal logic because this is the control signal for transistor */
-	/* CHANGED IT BACK, FLIPPED LINES 496 AND 501 AS NOT USING MOSFETS ANYMORE*/
 	if (val)
 	{
-		PORTOUT |= _BV(pin);
+		PORTOUT &= ~_BV(pin);
 	}
 	else
 	{
-
-		PORTOUT &= ~_BV(pin);
+		PORTOUT |= _BV(pin);
 	}
 }
 
