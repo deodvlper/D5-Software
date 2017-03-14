@@ -41,6 +41,9 @@
 #define I2 1.8	//life support
 #define I3 1.4	//ward power
 
+//DEFINITION: BUSBAR VOLTAGE LEVEL THRESHOLD (USED FOR CHECKING)
+#define V_threshold 220
+
 //DEFINITION CHARGE/DISCHARGE BATTERY
 #define CHARGING 1
 #define DISCHARGING 0
