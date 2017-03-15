@@ -74,6 +74,8 @@ int main()
 	uint32_t battery_drain = 0;		//used in the while loop at the beginning, checks usage
 	uint8_t  load_off = 0;			//used in the while loop at the beginning, remembers what load we turned off
 	double   renewable_check = 0;	//used in the while loop at the beginning, stores the value to save calculating twice
+	uint32_t  mains_check_start = 0;	//used in the while loop at the beginning, acts as a timer so it doesn't check mains status every time 
+	uint32_t  mains_check_end = 0;		//used in the while loop at the beginning, acts as a timer so it doesn't check mains status every time
 	
 	//INITIALIZATION
 	init_lcd();					//premade function, configures the ports
@@ -89,9 +91,11 @@ int main()
 	
 	init_loads_pwm(); 			//sets load switches and PWM output to zero
 	
+	//set_pwm_vout(2.5);
+	
 	//update_table(12,1, "             ");
-
-	while (1)
+		
+	while (1)		//0 for testing 
 	{
 		while (control == 1)
 			{
@@ -132,42 +136,53 @@ int main()
 						control = 0;
 						update_table(12,1, " Loop - solar");
 					}				
-					
-				if ((mains_status == 1) && (I_mains != 0))	//checks to see if the mains has gone down, when we are using the mains
+				
+				if (mains_check_start == 0)								//starts the "counting"
+					mains_check_start = counter;
+				
+				mains_check_end = counter;
+				
+				if ((mains_check_end - mains_check_start) > 1000)		//ensures these checks below only happen every 1000ms
 					{
-						voltage = get_v_amp();	//obtain busbar voltage
-						if (voltage < V_threshold)		//tolerance included here (should be 240)
-						{
-							control = 0;		//exit loop
-							update_table(12,1, " Loop - volt1");
-						}
-					}
-				if (mains_status == 0)	//checks to see if the mains is back on
-					{
-						I_mains = 2;
-						set_pwm_vout(I_mains);
-						
-						if ((load1_r == 1) && (load1_s == 0)) 
-							load_off = SLOAD1;
-						if ((load2_r == 1) && (load2_s == 0)) 
-							load_off = SLOAD2;
-						if ((load3_r == 1) && (load3_s == 0))
-							load_off = SLOAD3;	
-						
-						set_digital(load_off,1);	//connect the load that wants to be on, but we turned off due to not enough supply
-						
-						voltage = get_v_amp();		//obtain busbar voltage
-						if (voltage > V_threshold)			//tolerance included here (should be 240)
+						if ((mains_status == 1) && (I_mains != 0))	//checks to see if the mains has gone down, when we are using the mains
 							{
-								control = 0;			//exit loop//if BB v is still at 240, then the mains is working
-								update_table(12,1, " Loop - volt2");
+								voltage = get_v_amp();	//obtain busbar voltage
+								if (voltage < V_threshold)		//tolerance included here (should be 240)
+								{
+									control = 0;		//exit loop
+									update_table(12,1, " Loop - volt1");
+								}
 							}
+
+						if (mains_status == 0)	//checks to see if the mains is back on
+							{
+								I_mains = 3;
+								set_pwm_vout(I_mains);					//ask for mains current
+								
+								if ((load1_r == 1) && (load1_s == 0)) 
+									load_off = SLOAD1;
+								if ((load2_r == 1) && (load2_s == 0)) 
+									load_off = SLOAD2;
+								if ((load3_r == 1) && (load3_s == 0))
+									load_off = SLOAD3;	
+								
+								set_digital(load_off,1);	//connect the load that wants to be on, but we turned off due to not enough supply
+								
+								voltage = get_v_amp();		//obtain busbar voltage
+								if (voltage > V_threshold)			//tolerance included here (should be 240)
+									{
+										control = 0;			//exit loop//if BB v is still at 240, then the mains is working
+										update_table(12,1, " Loop - volt2");
+									}
+								
+								set_digital(load_off,0);	//disconnect the load that want to be on (code below will turn it back on)
+								I_mains = 0;
+								set_pwm_vout(I_mains);						
+							}
+						//check when if mains is down, detect if it is back up, change mains_status and control = 0
 						
-						set_digital(load_off,0);	//disconnect the load that want to be on (code below will turn it back on)
-						I_mains = 0;
-						set_pwm_vout(I_mains);						
+						mains_check_start = 0;				//ses to zero to allow the process to start all over again
 					}
-				//check when if mains is down, detect if it is back up, change mains_status and control = 0
 				
 				//update_table(12,1, " Before LCD  ");
 				//displaying per second
@@ -191,6 +206,9 @@ int main()
 		load3_r = (get_digital(CLOAD3)) ? 1 : 0;	//store load call in local request variable
 			
 		I_required = (load1_r * I1) + (load2_r * I2) + (load3_r * I3);		//finding required current 
+		
+		if ((load1_r) || (load2_r) || (load3_r))							//Adding extra bit of current for leeway, if we're outputting current
+			I_required += 0.05;
 		
 		/* 2) TASK 2 Use ADC single read of WT and PV to find current from renewables, store in variable */
 		
@@ -258,20 +276,15 @@ int main()
 					}
 				else /* Battery capacity is low, can charge*/
 					{
-						if (battery_c == 1)					//if battery is already charging
+						if (battery_c == 0)					//if battery isn't already charging
 							{
-								set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
-								control = 1;
-							}
-						else 
-							{
-								I_mains = 1 - (I_renewable - I_required);	//in amps
 								battery_c = 1;								//
 								battery_control(1,0);						//start charging
-								set_pwm_vout(I_mains);
-								set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
-								controller(3, &I_mains, &mains_status, &load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s, &I_renewable, &control);
 							}
+						I_mains = 1 - (I_renewable - I_required);	//in amps
+						set_pwm_vout(I_mains);
+						set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
+						controller(3, &I_mains, &mains_status, &load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s, &I_renewable, &control);							
 					}
 			}
 	
@@ -450,7 +463,7 @@ void init_pwm()
 	//Configure OCR2A to change the duty cycle. 0->255.
 
 	//Data direction of OC2A
-	DDRD |= _BV(PD5); //Output at PD5 of PWM
+	DDRD |= _BV(PD7); //Output at PD7 of PWM
 
 	//Configuring Timer
 	TCCR2A |= _BV(COM2A1) | _BV(WGM21) | _BV(WGM20); //Non-inverting mode output compare A, Fast PWM Mode with top=0xFF (mode 3). -- Ignore error. Still built, I think eclipse glitch.
@@ -526,7 +539,7 @@ double get_v_amp() //NOTE: RMS value
   while(counter < peak_end_time)
   {
 	//sampling bb volt or current
-	bb_q_sample = abs(read_adc(BBVOLTAGE)-520); //Mid point (1024/2) - 1 = 511, finds absolute value //New midpoint is 520
+	bb_q_sample = abs(read_adc(BBVOLTAGE)-511); //Mid point (1024/2) - 1 = 511, finds absolute value //New midpoint is 520
 
 	//finding peak
 	if(bb_q_sample > bb_q_amp)
@@ -638,13 +651,26 @@ void printNumber(double* value, char* dataToStrBuff, char* sprintfBuff, uint8_t 
 
 void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_r, uint8_t* load3_r, uint8_t* load1_s, uint8_t* load2_s, uint8_t* load3_s, uint8_t* battery_c, uint8_t* battery_d, double* I_mains, double* I_wind, double* I_solar, uint8_t* mains_status)			
 {	
-	double battery_mins = 0;
-	battery_mins = battery_capacity/60000.0;							//Getting battery capacity in minutes
-	printNumber(&battery_mins, dataToStrBuff, sprintfBuff, 4,2);		//Update battery capacity value
+	uint32_t battery_temp = 0;
 	
-	uint8_t I_mains_percentage;
+	if ((battery_c == 1) && (battery_d == 0))
+		{	
+			battery_temp =  battery_capacity + (counter - charge_start_time);
+		}
+	else if ((battery_c == 0) && (battery_d == 1))
+		{	
+			battery_temp =  battery_capacity - (counter - discharge_start_time);
+		}		
+	else
+		battery_temp = battery_capacity;
+	
+	double battery_mins = 0;
+	battery_mins = (double)(battery_temp/60000.0);					//Getting battery capacity in minutes
+	printNumber(&battery_mins, dataToStrBuff, sprintfBuff, 4,2);	//Update battery capacity value
+			
+	double I_mains_percentage;
 	I_mains_percentage = ((*I_mains * 100.0)/3.0);
-	//printNumber(&I_mains_percentage, dataToStrBuff, sprintfBuff, 5,2);	//Update mains percenatge current value
+	printNumber(&I_mains_percentage, dataToStrBuff, sprintfBuff, 5,2);	//Update mains percenatge current value
 	
 	printNumber(I_mains, dataToStrBuff, sprintfBuff, 6,2);				//Update mains current value
 	
@@ -660,7 +686,7 @@ void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_
 	printNumber(&temp, dataToStrBuff, sprintfBuff, 11,2);				//Update time, in seconds 
 	
 	double temp1 = 0;
-	temp = (double)*mains_status;
+	temp1 = (double)*mains_status;
 	printNumber(&temp1, dataToStrBuff, sprintfBuff, 15,3);				//update mains control status
 	
 	(*load1_r) ? update_table(0,1, "Yes") : update_table(0,1, "No ");	//Update load 1 request
@@ -744,7 +770,11 @@ void controller(uint8_t mode, double* I_mains, uint8_t* mains_status, uint8_t* l
 		{
 			*I_mains += 0.1;						//increase mains output current by a small amount
 			set_pwm_vout(*I_mains);					//apply this to the mains by the PWM signal
+			update_table(12,1, " Increase BV ");	
+			_delay_ms(200);						
 			voltage_after = get_v_amp();			//obtain new voltage value
+			update_table(12,1, " Got 2nd BV  ");
+			_delay_ms(200);
 			if (!(voltage_after > voltage_prev))	//test if the mains works, should have increased
 				{
 					*mains_status = 0;				//this code runs if the mains doesn't work	
@@ -810,15 +840,20 @@ void controller(uint8_t mode, double* I_mains, uint8_t* mains_status, uint8_t* l
 										battery_control(1,0);				//simply stop charging, renewable current is enough to supply the loads
 										break;
 						}
+					*I_mains -= 0.1;			//bring mains back to the original level
+					set_pwm_vout(*I_mains);		//apply this to the mains by the PWM signal
 				}
 			else
-			/* We know the mians works */
+			/* We know the mains works, now we need to make BB_V 240V */
 				{
 					*mains_status = 1;	//mains is fine
+					while (((get_v_amp()) < V_threshold))					//this continuously checks if the BB_V is high enough 
+						{
+							*I_mains += 0.1;						//increase mains output current by a small amount
+							set_pwm_vout(*I_mains);					//apply this to the mains by the PWM signal
+						}
 				}
-			*I_mains -= 0.1;			//bring mains back to the original level
-			set_pwm_vout(*I_mains);		//apply this to the mains by the PWM signal
-										//move this to the else loop above, if we go ahead with the proportional control
+
 		}
 	*control = 1;						//system should work fine, all is good!
 }
