@@ -111,12 +111,12 @@ int main()
 						if ((mains_status = 1) && (battery_drain < 180000))
 							{
 								control = 0;
-								update_table(12,1, " Loop - bat low1");
+								update_table(12,1, " Loop - bat 1");
 							}
 						if ((mains_status = 0) && (battery_drain < 10))
 							{
 								control = 0;
-								update_table(12,1, " Loop - bat low2");
+								update_table(12,1, " Loop - bat 2");
 							}
 					}
 				
@@ -124,7 +124,7 @@ int main()
 				if ( (I_wind  < (renewable_check - 0.09)) || (I_wind  > (renewable_check + 0.09)) )		//checks if the wind turbine current has changed
 					{
 						control = 0;
-						update_table(12,1, " Loop - wind ");
+						update_table(12,1, " Loop - wind");
 					}
 				renewable_check = ((read_adc(PVCURRENT))/1023.0) * 5;
 				if ( (I_solar  < (renewable_check - 0.09)) || (I_solar  > (renewable_check + 0.09)) )	//checks if the solar cell current has changed
@@ -176,7 +176,7 @@ int main()
 						voltage = get_v_amp();		
 						current = get_c_amp();
 						//update_table(12,1, " LCD update 1");
-						update_values(&voltage, &current, &load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s, &battery_c, &battery_d, &I_mains, &I_wind, &I_solar);			//Update values
+						update_values(&voltage, &current, &load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s, &battery_c, &battery_d, &I_mains, &I_wind, &I_solar, &mains_status);			//Update values
 						lcd_count += 1; //count for updating the screen.
 						//update_table(12,1, " LCD update 2");	
 					}
@@ -204,6 +204,7 @@ int main()
 		
 		printNumber(&I_renewable, dataToStrBuff, sprintfBuff, 13,2);	
 		printNumber(&I_required, dataToStrBuff, sprintfBuff, 14,2);	
+		update_values(&voltage, &current, &load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s, &battery_c, &battery_d, &I_mains, &I_wind, &I_solar, &mains_status);
 		
 		/* 3) DECISION MAKING BLOCKS */
 		
@@ -240,6 +241,7 @@ int main()
 								battery_control(1,0);
 								set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
 							}
+						control = 1;
 					}
 				
 				/* <1A surplus current from renewables */
@@ -252,12 +254,14 @@ int main()
 								battery_control(1,0);		//stop charging
 							}
 						set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
+						control = 1;
 					}
 				else /* Battery capacity is low, can charge*/
 					{
 						if (battery_c == 1)					//if battery is already charging
 							{
 								set_loads(&load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s);	//connect up loads
+								control = 1;
 							}
 						else 
 							{
@@ -405,7 +409,8 @@ void init_usr_intfc()
 	update_table(11,0, "Time:");
 	update_table(12,0, "Pos:");	
 	update_table(13,0, "I_Ren:");		
-	update_table(14,0, "I_Req:");		
+	update_table(14,0, "I_Req:");
+	update_table(15,0, "Mains status:");	
 
 	update_table( 4,3, "mins");
 	update_table( 5,4, "%");
@@ -414,7 +419,9 @@ void init_usr_intfc()
 	update_table( 8,4, "A");
 	update_table( 9,4, "V");
 	update_table(10,4, "A");
-	update_table(11,5, "ms");
+	update_table(11,4, "s");
+	update_table(13,4, "A");
+	update_table(14,4, "A");
 }
 
 void init_adc()
@@ -443,7 +450,7 @@ void init_pwm()
 	//Configure OCR2A to change the duty cycle. 0->255.
 
 	//Data direction of OC2A
-	DDRD |= _BV(PD7); //Output at PD7 of PWM
+	DDRD |= _BV(PD5); //Output at PD5 of PWM
 
 	//Configuring Timer
 	TCCR2A |= _BV(COM2A1) | _BV(WGM21) | _BV(WGM20); //Non-inverting mode output compare A, Fast PWM Mode with top=0xFF (mode 3). -- Ignore error. Still built, I think eclipse glitch.
@@ -519,17 +526,18 @@ double get_v_amp() //NOTE: RMS value
   while(counter < peak_end_time)
   {
 	//sampling bb volt or current
-	bb_q_sample = abs(read_adc(BBVOLTAGE)-511); //Mid point (1024/2) - 1 = 511, finds absolute value
+	bb_q_sample = abs(read_adc(BBVOLTAGE)-520); //Mid point (1024/2) - 1 = 511, finds absolute value //New midpoint is 520
 
 	//finding peak
 	if(bb_q_sample > bb_q_amp)
 		{
 		  //if sample is more than prev sampled value replace it.
-		  bb_q_amp = bb_q_amp;
+		  bb_q_amp = bb_q_sample;
 		}
   }
 
   //return value
+  //return read_adc(BBVOLTAGE);
   return (((bb_q_amp/512.0)*400)/sqrt(2)); //because max input at 400V.
 }
 
@@ -548,7 +556,7 @@ double get_c_amp() //NOTE: RMS VALUE
     if(bb_q_sample > bb_q_amp)
 		{
 		  //if sample is more than prev sampled value replace it.
-		  bb_q_amp = bb_q_amp;
+		  bb_q_amp = bb_q_sample;
 		}
   }
 
@@ -628,7 +636,7 @@ void printNumber(double* value, char* dataToStrBuff, char* sprintfBuff, uint8_t 
 	update_table(row, col, sprintfBuff);
 }
 
-void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_r, uint8_t* load3_r, uint8_t* load1_s, uint8_t* load2_s, uint8_t* load3_s, uint8_t* battery_c, uint8_t* battery_d, double* I_mains, double* I_wind, double* I_solar)
+void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_r, uint8_t* load3_r, uint8_t* load1_s, uint8_t* load2_s, uint8_t* load3_s, uint8_t* battery_c, uint8_t* battery_d, double* I_mains, double* I_wind, double* I_solar, uint8_t* mains_status)			
 {	
 	double battery_mins = 0;
 	battery_mins = battery_capacity/60000.0;							//Getting battery capacity in minutes
@@ -648,7 +656,12 @@ void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_
 	
 	double temp = 0;
 	temp = (double)counter;
-	printNumber(&temp, dataToStrBuff, sprintfBuff, 11,2);				//Update time
+	temp = temp/1000;
+	printNumber(&temp, dataToStrBuff, sprintfBuff, 11,2);				//Update time, in seconds 
+	
+	double temp1 = 0;
+	temp = (double)*mains_status;
+	printNumber(&temp1, dataToStrBuff, sprintfBuff, 15,3);				//update mains control status
 	
 	(*load1_r) ? update_table(0,1, "Yes") : update_table(0,1, "No ");	//Update load 1 request
 	(*load2_r) ? update_table(1,1, "Yes") : update_table(1,1, "No ");	//Update load 2 request

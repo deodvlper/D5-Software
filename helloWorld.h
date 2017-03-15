@@ -67,9 +67,9 @@ void battery_start(uint8_t mode, uint32_t* start_time, uint8_t* battery_c, uint8
 void update_avg(const double* total_energy,const uint64_t* sample,double* avg_power);
 void update_energy(const uint16_t* voltage_read, const uint16_t* current_read, uint64_t* sample, double* total_energy);
 void printNumber(double* value, char* dataToStrBuff, char*sprintfBuff, uint8_t row, uint8_t col);
-void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_r, uint8_t* load3_r, uint8_t* load1_s, uint8_t* load2_s, uint8_t* load3_s, uint8_t* battery_c, uint8_t* battery_d, double* i_mains, double* I_wind, double* I_solar);		//Created function, updates the values
+void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_r, uint8_t* load3_r, uint8_t* load1_s, uint8_t* load2_s, uint8_t* load3_s, uint8_t* battery_c, uint8_t* battery_d, double* i_mains, double* I_wind, double* I_solar, uint8_t* mains_status);		//Created function, updates the values
 void battery_control(uint8_t charge_control, uint8_t discharge_control);
 void set_loads(uint8_t* load1_r, uint8_t* load2_r, uint8_t* load3_r, uint8_t* load1_s, uint8_t* load2_s, uint8_t* load3_s);
 void set_loads_control(uint8_t* load1_s, uint8_t* load2_s, uint8_t* load3_s);
-void controller(uint8_t mode, double* I_mains, uint8_t* mains_status, uint8_t* load1_r, uint8_t* load2_r, uint8_t* load3_r, uint8_t* load1_s, uint8_t* load2_s, uint8_t* load3_s, double* I_renewable, uint8_t* control);
+void controller(uint8_t mode, double* I_mains, uint8_t* mains_status, uint8_t* load1_r, uint8_t* load2_r, uint8_t* load3_r, uint8_t* load1_s, uint8_t* load2_s, uint8_t* load3_s, double* I_renewable, uint8_t* control);							
 
