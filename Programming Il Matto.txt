@@ -1,4 +1,7 @@
+avr-gcc -mmcu=atmega644p -DF_CPU=12000000 -Wall -Os helloWorld.c font.c lcd.c ili934x.c -o helloWorld.elf
+
 avr-gcc -mmcu=atmega644p -DF_CPU=12000000 -Wall -Os helloWorld.c font.c lcd.c ili934x.c -o helloWorld.elf && avr-objcopy -O ihex helloWorld.elf helloWorld.hex && avrdude -c usbasp -p m644p -U flash:w:helloWorld.hex
+avr-gcc -mmcu=atmega644p -DF_CPU=12000000 -Wall -Os helloWorldTest1.c font.c lcd.c ili934x.c -o helloWorldTest1.elf && avr-objcopy -O ihex helloWorldTest1.elf helloWorldTest1.hex && avrdude -c usbasp -p m644p -U flash:w:helloWorldTest1.hex				
 
 avr-objcopy -O ihex helloWorld.elf helloWorld.hex
 
