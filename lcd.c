@@ -203,6 +203,9 @@ void update_table(uint16_t row, uint16_t col, char *str)
 			case 5 :	
 						change_position((display.width*0.85) ,  start_y + (row * 16) );		//for the ms
 						break;
+			case 6 :	
+						change_position((display.width*0.60) ,  start_y + (row * 16) );		//extra
+						break;
 		}
 	//the height always add 16 to the next one.
 	display_string(str);
