@@ -227,8 +227,8 @@ int main()
 	
 		I_renewable = I_wind + I_solar; 
 		
-		printNumber(&I_renewable, dataToStrBuff, sprintfBuff, 13,2);	
-		printNumber(&I_required, dataToStrBuff, sprintfBuff, 14,2);	
+		printNumber(&I_renewable, dataToStrBuff, sprintfBuff, 13,6);	
+		printNumber(&I_required, dataToStrBuff, sprintfBuff, 14,6);	
 		update_values(&voltage, &current, &load1_r, &load2_r, &load3_r, &load1_s, &load2_s, &load3_s, &I_mains, &I_wind, &I_solar, &mains_status);
 		
 		/* 3) DECISION MAKING BLOCKS */
@@ -313,6 +313,11 @@ int main()
 							}
 						if (battery_capacity > 480000)		//480000ms = 8 minutes
 							{
+								if (battery_c == 1)				
+									{
+										battery_c = 0;
+										battery_control(1,0);		//stop charging, as we have enough capacity
+									}
 								I_mains = (I_required - I_renewable);		//mains to supply the current deficit
 								I_mains = I_mains * 1.2;								//USED UPDATE 
 								if (I_mains > 3)
@@ -379,8 +384,11 @@ int main()
 								if ((I_mains + 1.2) < 3)		//if there is enough mains capacity left to charge battery, and if the battery needs charging
 									{
 										I_mains += 1;				//mains will also charge battery
-										battery_c = 1;
-										battery_control(1,0);
+										if (battery_c != 1)
+											{
+												battery_c = 1;			//start charging
+												battery_control(1,0);
+											}
 									}
 								else if (battery_c == 1)
 									{
@@ -455,9 +463,9 @@ void init_usr_intfc()
 	update_table(12,0, "Pos:");	
 	update_table(13,0, "I_Ren:");		
 	update_table(14,0, "I_Req:");
-	update_table(15,0, "Mains status:");	
+	update_table(15,0, "Mains:");	
 
-	update_table( 4,3, "mins");
+	update_table( 4,4, "s");
 	update_table( 5,4, "%");
 	update_table( 6,4, "A");
 	update_table( 7,4, "A");
@@ -701,30 +709,33 @@ void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_
 	else 
 		battery_temp = battery_capacity;
 	
+	battery_temp = battery_temp/1000.0;
 	double battery_mins = 0;
-	battery_mins = (double)(battery_temp/1000.0);					//Getting battery capacity in minutes (60,000), CHANGED TO SECS for edit
-	printNumber(&battery_mins, dataToStrBuff, sprintfBuff, 4,2);	//Update battery capacity value
+	battery_mins = battery_temp;									//Getting battery capacity in minutes (60,000), CHANGED TO SECS for edit
+	printNumber(&battery_mins, dataToStrBuff, sprintfBuff, 4,6);	//Update battery capacity value
 			
 	double I_mains_percentage;
 	I_mains_percentage = ((*I_mains * 100.0)/3.0);
-	printNumber(&I_mains_percentage, dataToStrBuff, sprintfBuff, 5,2);	//Update mains percenatge current value
+	printNumber(&I_mains_percentage, dataToStrBuff, sprintfBuff, 5,6);	//Update mains percenatge current value
 	
-	printNumber(I_mains, dataToStrBuff, sprintfBuff, 6,2);				//Update mains current value
+	printNumber(I_mains, dataToStrBuff, sprintfBuff, 6,6);				//Update mains current value
 	
-	printNumber(I_wind,  dataToStrBuff, sprintfBuff, 7,2);				//Update wind current value
-	printNumber(I_solar, dataToStrBuff, sprintfBuff, 8,2);				//Update solar current value
+	printNumber(I_wind,  dataToStrBuff, sprintfBuff, 7,6);				//Update wind current value
+	printNumber(I_solar, dataToStrBuff, sprintfBuff, 8,6);				//Update solar current value
 	
-	printNumber(bb_v,    dataToStrBuff, sprintfBuff, 9,2);				//Update voltage value
-	printNumber(bb_c,    dataToStrBuff, sprintfBuff, 10,2);				//Update current value
+	printNumber(bb_v,    dataToStrBuff, sprintfBuff, 9,6);				//Update voltage value
+	printNumber(bb_c,    dataToStrBuff, sprintfBuff, 10,6);				//Update current value
 	
 	double temp = 0;
 	temp = (double)counter;
 	temp = temp/1000;
-	printNumber(&temp, dataToStrBuff, sprintfBuff, 11,2);				//Update time, in seconds 
+	printNumber(&temp, dataToStrBuff, sprintfBuff, 11,6);				//Update time, in seconds 
 	
 	double temp1 = 0;
 	temp1 = (double)*mains_status;
-	printNumber(&temp1, dataToStrBuff, sprintfBuff, 15,2);				//update mains control status
+	(temp1) ? update_table(15,2, "   Online") : update_table(15,2, "  Offline");	//update mains control status
+	//temp1 = (double)charge_start_time;
+	//printNumber(&temp1, dataToStrBuff, sprintfBuff, 15,2);				//update mains control status
 	
 	(*load1_r) ? update_table(0,1, "Yes") : update_table(0,1, "No ");	//Update load 1 request
 	(*load2_r) ? update_table(1,1, "Yes") : update_table(1,1, "No ");	//Update load 2 request
@@ -740,10 +751,19 @@ void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_
 		update_table(3,2, "   Charge");
 	else
 		update_table(3,2, "Discharge");
+	/*
+	double temp2 = 0;
+	double temp3 = 0;
+	temp2 = (double) battery_c;
+	temp3 = (double) battery_d;
+	printNumber(&temp2, dataToStrBuff, sprintfBuff, 13,2);	
+	printNumber(&temp3, dataToStrBuff, sprintfBuff, 14,2);
+	*/
 }
 
 void battery_control(uint8_t charge_control, uint8_t discharge_control)
 {
+	//cli();		//temporarily disable interrupts
 	if (charge_control == 1)
 		{
 			if (battery_c == 1)
@@ -773,6 +793,7 @@ void battery_control(uint8_t charge_control, uint8_t discharge_control)
 					battery_capacity -= (discharge_end_time - discharge_start_time);
 				}			
 		}
+	//sei();		//enable interrupts
 }
 
 void set_loads(uint8_t* load1_r, uint8_t* load2_r, uint8_t* load3_r, uint8_t* load1_s, uint8_t* load2_s, uint8_t* load3_s)
