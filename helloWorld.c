@@ -33,18 +33,18 @@ int main()
 	//char sprintfBuff[20];   //data<string> -> sprintf buffer. Formats array of chars into suitable format for display,
 							  //this is what is displayed on the LCD
 
-	uint64_t sample		 = 0; 	//sample count
+	//uint64_t sample		 = 0; 	//sample count
 	
 	//uint16_t bb_v_sample = 0;	//updates on each sample
 	//uint16_t bb_c_sample = 0;	//updates on each sample
 	//uint16_t wt_c_sample = 0;	//updates on each sample
 	//uint16_t pv_c_sample = 0;	//updates on each sample
 	
-	double temp = 0;
+	//double temp = 0;
 	
-	double   total_energy = 0;	
-	double   avg_power    = 0;	
-	uint8_t  updated      = 0;	//acts as a boolean variable, used for updating LCD
+	//double   total_energy = 0;	
+	//double   avg_power    = 0;	
+	//uint8_t  updated      = 0;	//acts as a boolean variable, used for updating LCD
 
 	uint8_t  load1_r = 0; 		//'_r' = request, '_s' = set.
 	uint8_t  load2_r = 0;		//all of these act as boolean variables
@@ -113,15 +113,19 @@ int main()
 				if (battery_d == 1)
 					{
 						battery_drain = battery_capacity - (counter - discharge_start_time);	//finds updated battery capacity, without changing battery_capacity
-						if ((mains_status = 1) && (battery_drain < 120000))						//2 minutes
+						if ((mains_status = 1) && (battery_drain < 1000))						//1 minutes
 							{
 								control = 0;
+								//battery_d = 0;
+								//battery_control(0,1);		//stop discharging
 								//update_table(15,1, " Loop - bat 1 ");
 								//_delay_ms(1000);
 							}
-						if ((mains_status = 0) && (battery_drain < 10))
+						if ((mains_status = 0) && (battery_drain < 1000))
 							{
 								control = 0;
+								battery_d = 0;
+								battery_control(0,1);		//stop discharging
 								//update_table(15,1, " Loop - bat 2 ");
 								//_delay_ms(1000);
 							}
@@ -233,10 +237,10 @@ int main()
 		/* 2) TASK 2 Use ADC single read of WT and PV to find current from renewables, store in variable */
 		
 		I_wind  = read_adc(WTCURRENT);	//obtain ADC value from 0 to 1023
-		I_wind  = (I_wind/1023.0) * 5;	//turns ADC value into the respective current
+		I_wind  = (I_wind/1023.0) * 5 * 0.95;	//turns ADC value into the respective current
 		
 		I_solar = read_adc(PVCURRENT);	//obtain ADC value from 0 to 1023
-		I_solar = (I_solar/1023.0) * 5;	//turns ADC value into the respective current
+		I_solar = (I_solar/1023.0) * 5 * 0.95;	//turns ADC value into the respective current
 	
 		I_renewable = I_wind + I_solar; 
 		
@@ -750,7 +754,19 @@ void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_
 	
 	double temp1 = 0;
 	temp1 = (double)*mains_status;
-	(temp1) ? update_table(14,2, "   Online") : update_table(14,2, "  Offline");	//update mains control status
+	if (temp1)
+		{
+			change_foreground(GREEN);
+			update_table(14,2, "   Online");
+			change_foreground(WHITE);
+		}
+	else
+		{
+			change_foreground(RED);
+			update_table(14,2, "  Offline");
+			change_foreground(WHITE);
+		}
+	//(temp1) ? update_table(14,2, "   Online") : update_table(14,2, "  Offline");	//update mains control status
 	//temp1 = (double)charge_start_time;
 	//printNumber(&temp1, dataToStrBuff, sprintfBuff, 15,2);				//update mains control status
 	
@@ -763,11 +779,29 @@ void update_values(double* bb_v, double* bb_c, uint8_t* load1_r, uint8_t* load2_
 	(*load3_s) ? update_table(2,3, "Yes") : update_table(2,3, "No ");	//Update load 3 request
 
 	if ((battery_c == 0) && (battery_d == 0))
-		update_table(3,2, "     Idle");
-	else if (battery_c == 1)
-		update_table(3,2, "   Charge");
+		{
+			change_foreground(YELLOW);
+			update_table(3,2, "     Idle");
+			set_digital(CBATT, battery_c);
+			set_digital(DBATT, battery_d);	
+			change_foreground(WHITE);
+		}
+	else if ((battery_c == 1) && (battery_d == 0))
+		{
+			change_foreground(GREEN);			
+			update_table(3,2, "   Charge");
+			set_digital(CBATT, battery_c);
+			set_digital(DBATT, battery_d);
+			change_foreground(WHITE);
+		}
 	else
-		update_table(3,2, "Discharge");
+		{
+			change_foreground(RED);			
+			update_table(3,2, "Discharge");
+			set_digital(CBATT, battery_c);
+			set_digital(DBATT, battery_d);		
+			change_foreground(WHITE);
+		}
 	/*
 	double temp2 = 0;
 	double temp3 = 0;
